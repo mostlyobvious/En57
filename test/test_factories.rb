@@ -21,7 +21,7 @@ module En57
     end
 
     def test_for_active_record_round_trips_with_custom_model
-      with_const(:DasModel, Class.new(ActiveRecord::Base)) do
+      Object.stub_const(:DasModel, Class.new(ActiveRecord::Base)) do
         assert_round_trip(EventStore.for_active_record(DasModel))
       end
     end
@@ -40,13 +40,6 @@ module En57
     end
 
     private
-
-    def with_const(name, value)
-      Object.const_set(name, value)
-      yield
-    ensure
-      Object.__send__(:remove_const, name)
-    end
 
     def assert_round_trip(event_store)
       event = Event.new(type: "FactoryTested")

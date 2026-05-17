@@ -2,6 +2,7 @@
 
 require "minitest/autorun"
 require "minitest/mock"
+require "minitest/stub_const"
 require "mutant/minitest/coverage"
 
 # optional dependencies
