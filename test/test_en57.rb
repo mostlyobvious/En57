@@ -24,7 +24,35 @@ module En57
       RUBY
     end
 
+    def test_configuration_default_serializer
+      assert_kind_of JsonSerializer, En57.configuration.serializer
+    end
+
+    def test_configure
+      with_empty_configuration do
+        serializer = Object.new
+        En57.configure { |c| c.serializer = serializer }
+
+        assert_equal serializer, En57.configuration.serializer
+      end
+    end
+
+    def test_configure_disallows_further_modifications_after_boot
+      with_empty_configuration do
+        serializer = Object.new
+        En57.configure { |c| c.serializer = serializer }
+
+        assert_raises(FrozenError) do
+          En57.configure { |c| c.serializer = serializer }
+        end
+      end
+    end
+
     private
+
+    def with_empty_configuration
+      En57.stub(:configuration, Class.new(Configuration).instance) { yield }
+    end
 
     def assert_ruby(script)
       reader, writer = IO.pipe

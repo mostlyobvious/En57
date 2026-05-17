@@ -11,7 +11,16 @@ require_relative "en57/active_record_adapter" if defined?(ActiveRecord)
 require_relative "en57/repository"
 require_relative "en57/migrator"
 require_relative "en57/event_store"
+require_relative "en57/configuration"
 
 module En57
   AppendConditionViolated = Class.new(StandardError)
+
+  def self.configuration = Configuration.instance
+
+  def self.configure
+    yield configuration
+  ensure
+    configuration.freeze
+  end
 end

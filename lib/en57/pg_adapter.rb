@@ -39,12 +39,7 @@ module En57
 
   class EventStore
     def self.for_pg(connection_uri)
-      new(
-        Repository.new(
-          PgAdapter.for_connection(PG.connect(connection_uri)),
-          JsonSerializer.new,
-        ),
-      )
+      new(Repository.new(PgAdapter.for_connection(PG.connect(connection_uri))))
     end
   end
 
@@ -58,7 +53,6 @@ module En57
                 PG.connect(connection_uri)
               end,
             ),
-            JsonSerializer.new,
           ),
         )
       end

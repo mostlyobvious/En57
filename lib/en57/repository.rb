@@ -4,7 +4,7 @@ require "pg"
 
 module En57
   class Repository
-    def initialize(adapter, serializer)
+    def initialize(adapter, serializer = En57.configuration.serializer)
       @adapter = adapter
       @serializer = serializer
       @record_encoder = PG::TextEncoder::Record.new

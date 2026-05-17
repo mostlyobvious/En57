@@ -19,3 +19,4 @@ matcher:
     - En57::EventStore.for_sequel
     - En57::JsonSerializer#optional_big_decimal_type
     - En57::Migrator*
+    - En57::Repository#initialize

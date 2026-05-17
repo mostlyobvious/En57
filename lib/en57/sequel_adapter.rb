@@ -24,7 +24,7 @@ module En57
 
   class EventStore
     def self.for_sequel(database)
-      new(Repository.new(SequelAdapter.new(database), JsonSerializer.new))
+      new(Repository.new(SequelAdapter.new(database)))
     end
   end
 end
