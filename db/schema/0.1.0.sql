@@ -27,10 +27,12 @@ CREATE TYPE en57.event AS (
 );
 
 CREATE FUNCTION en57.append_events (new_events en57.event[], append_condition jsonb DEFAULT '{}'::jsonb)
-    RETURNS TABLE ("position" bigint, conflicting_events text)
+    RETURNS TABLE (
+        "position" bigint,
+        conflicting_events text)
     LANGUAGE plpgsql
     AS $$
-#variable_conflict use_column
+    # variable_conflict use_column
 DECLARE
     criteria jsonb[] := ARRAY (
         SELECT
@@ -44,10 +46,11 @@ BEGIN
             SELECT
                 e.position,
                 jsonb_build_object('id', e.id, 'type', e.type, 'data', e.data::text, 'meta', e.meta::text, 'tags', COALESCE((
-                    SELECT
-                        array_agg(t.value ORDER BY t.value) FROM en57.tags AS t
-                    WHERE
-                        t.event_id = e.id), ARRAY[]::text[])) AS event_obj
+                        SELECT
+                            array_agg(t.value ORDER BY t.value)
+                        FROM en57.tags AS t
+                        WHERE
+                            t.event_id = e.id), ARRAY[]::text[])) AS event_obj
             FROM
                 en57.events AS e
             WHERE
@@ -56,35 +59,44 @@ BEGIN
                         1
                     FROM
                         unnest(criteria) AS c
-                    WHERE ((c ->> 'after')::bigint IS NULL OR e.position > (c ->> 'after')::bigint) AND (c -> 'types' IS NULL OR e.type IN (
-SELECT
-    jsonb_array_elements_text(c -> 'types'))) AND NOT EXISTS (
-SELECT
-    1
-FROM
-    jsonb_array_elements_text(COALESCE(c -> 'tags', '[]'::jsonb)) AS req (value)
-WHERE
-    NOT EXISTS (
-    SELECT
-        1
-    FROM
-        en57.tags AS t
-    WHERE
-        t.event_id = e.id AND t.value = req.value)))
-)
-        SELECT
-            max(position),
-            jsonb_agg(event_obj ORDER BY position) INTO conflict_max_position,
-            conflicts
-        FROM
-            matches;
-        IF conflict_max_position IS NOT NULL THEN
-            RETURN QUERY SELECT conflict_max_position, conflicts::text;
-            RETURN;
-        END IF;
+                    WHERE ((c ->> 'after')::bigint IS NULL
+                        OR e.position > (c ->> 'after')::bigint)
+                    AND (c -> 'types' IS NULL
+                        OR e.type IN (
+                            SELECT
+                                jsonb_array_elements_text(c -> 'types')))
+                        AND NOT EXISTS (
+                            SELECT
+                                1
+                            FROM
+                                jsonb_array_elements_text(COALESCE(c -> 'tags', '[]'::jsonb)) AS req (value)
+                            WHERE
+                                NOT EXISTS (
+                                    SELECT
+                                        1
+                                    FROM
+                                        en57.tags AS t
+                                    WHERE
+                                        t.event_id = e.id
+                                        AND t.value = req.value))))
+                SELECT
+                    max(position),
+                jsonb_agg(event_obj ORDER BY position)
+            INTO
+                conflict_max_position,
+                conflicts
+            FROM
+                matches;
+                IF conflict_max_position IS NOT NULL THEN
+                    RETURN QUERY
+                    SELECT
+                        conflict_max_position,
+                        conflicts::text;
+                        RETURN;
+                END IF;
     END IF;
     WITH inserted AS (
-        INSERT INTO en57.events (id, type, data, meta)
+INSERT INTO en57.events (id, type, data, meta)
         SELECT
             e.id,
             e.type,
@@ -92,9 +104,15 @@ WHERE
             e.meta
         FROM
             unnest(new_events) AS e
-        RETURNING position
-    )
-    SELECT max(position) INTO last_position FROM inserted;
+        RETURNING
+            position
+)
+    SELECT
+        max(position)
+    INTO
+        last_position
+    FROM
+        inserted;
     INSERT INTO en57.tags (event_id, value)
     SELECT
         e.id,
@@ -102,7 +120,10 @@ WHERE
     FROM
         unnest(new_events) AS e
     CROSS JOIN LATERAL unnest(COALESCE(e.tags, ARRAY[]::text[])) AS t (value);
-    RETURN QUERY SELECT last_position, '[]'::text;
+    RETURN QUERY
+    SELECT
+        last_position,
+        '[]'::text;
 END;
 $$;
 

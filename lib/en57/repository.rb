@@ -4,9 +4,14 @@ require "pg"
 
 module En57
   class Repository
-    def initialize(adapter, serializer = En57.configuration.serializer)
+    def initialize(
+      adapter,
+      serializer = En57.configuration.serializer,
+      max_retries: En57.configuration.max_retries
+    )
       @adapter = adapter
       @serializer = serializer
+      @max_retries = max_retries
       @record_encoder = PG::TextEncoder::Record.new
       @array_encoder = PG::TextEncoder::Array.new
       @array_decoder = PG::TextDecoder::Array.new
@@ -32,39 +37,41 @@ module En57
         :fail_if_events_match
       ] = fail_if_events_match unless fail_if_events_match.empty?
 
-      row =
-        @adapter
-          .with_serializable_transaction do |connection|
-            connection.exec_params(
-              "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
-              [
-                @array_encoder.encode(event_records),
-                JSON.generate(append_condition),
-              ],
-            )
-          end
-          .first
-      raw_position = row.fetch("position")
-      position = raw_position && Integer(raw_position)
-      conflicting_events =
-        JSON
-          .parse(row.fetch("conflicting_events"))
-          .map do |conflict|
-            Event.new(
-              id: conflict.fetch("id"),
-              type: conflict.fetch("type"),
-              data:
-                @serializer.load(
-                  conflict.fetch("data") || "{}",
-                  conflict.fetch("meta"),
-                ),
-              tags: conflict.fetch("tags"),
-            )
-          end
-      if conflicting_events.empty?
-        Success.new(position:)
-      else
-        Failure.new(position:, conflicting_events:)
+      with_retries do
+        row =
+          @adapter
+            .with_serializable_transaction do |connection|
+              connection.exec_params(
+                "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
+                [
+                  @array_encoder.encode(event_records),
+                  JSON.generate(append_condition),
+                ],
+              )
+            end
+            .first
+        raw_position = row.fetch("position")
+        position = raw_position && Integer(raw_position)
+        conflicting_events =
+          JSON
+            .parse(row.fetch("conflicting_events"))
+            .map do |conflict|
+              Event.new(
+                id: conflict.fetch("id"),
+                type: conflict.fetch("type"),
+                data:
+                  @serializer.load(
+                    conflict.fetch("data") || "{}",
+                    conflict.fetch("meta"),
+                  ),
+                tags: conflict.fetch("tags"),
+              )
+            end
+        if conflicting_events.empty?
+          Success.new(position:)
+        else
+          Failure.new(position:, conflicting_events:)
+        end
       end
     end
 
@@ -90,6 +97,19 @@ module En57
             Integer(row.fetch("position")),
           ]
         end
+    end
+
+    private
+
+    def with_retries
+      attempts = 0
+      begin
+        yield
+      rescue PG::TRSerializationFailure
+        raise if attempts == @max_retries
+        attempts += 1
+        retry
+      end
     end
   end
 end

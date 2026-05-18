@@ -28,6 +28,12 @@ module En57
       assert_kind_of JsonSerializer, En57.configuration.serializer
     end
 
+    def test_configuration_default_retry_settings
+      with_empty_configuration do
+        assert_equal 10, En57.configuration.max_retries
+      end
+    end
+
     def test_configure
       with_empty_configuration do
         serializer = Object.new

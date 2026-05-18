@@ -595,7 +595,62 @@ module En57
       end
     end
 
-    def test_append_lets_serialization_failure_surface
+    def test_append_retries_on_serialization_failure_then_succeeds
+      with_connection do |connection|
+        connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
+        connection.expect(:exec, nil, ["ROLLBACK"])
+        connection.expect(:exec_params, nil) do
+          raise PG::TRSerializationFailure.new
+        end
+        connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
+        connection.expect(
+          :exec_params,
+          [{ "position" => "1", "conflicting_events" => "[]" }],
+          [
+            "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            [array_encoder.encode([]), "{}"],
+          ],
+        )
+        connection.expect(:exec, nil, ["COMMIT"])
+
+        repository =
+          Repository.new(
+            PgAdapter.for_connection(connection),
+            JsonSerializer.new,
+            max_retries: 1,
+          )
+
+        repository.stub(:sleep, ->(*) { raise "sleep should not be called" }) do
+          result = repository.append([], fail_if: Query.all)
+          assert_equal(Success.new(position: 1), result)
+        end
+      end
+    end
+
+    def test_append_raises_after_exhausting_retries
+      with_connection do |connection|
+        2.times do
+          connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
+          connection.expect(:exec, nil, ["ROLLBACK"])
+          connection.expect(:exec_params, nil) do
+            raise PG::TRSerializationFailure.new
+          end
+        end
+
+        repository =
+          Repository.new(
+            PgAdapter.for_connection(connection),
+            JsonSerializer.new,
+            max_retries: 1,
+          )
+
+        assert_raises(PG::TRSerializationFailure) do
+          repository.append([], fail_if: Query.all)
+        end
+      end
+    end
+
+    def test_append_raises_without_retrying_when_max_retries_is_zero
       with_connection do |connection|
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(:exec, nil, ["ROLLBACK"])
@@ -603,11 +658,15 @@ module En57
           raise PG::TRSerializationFailure.new
         end
 
-        assert_raises(PG::TRSerializationFailure) do
+        repository =
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
-          ).append([], fail_if: Query.all)
+            max_retries: 0,
+          )
+
+        assert_raises(PG::TRSerializationFailure) do
+          repository.append([], fail_if: Query.all)
         end
       end
     end
