@@ -57,8 +57,11 @@ event_store = En57::EventStore.for_active_record
 
 ### Append events unconditionally
 
-`append` returns a result. On success it carries the position of the last
-appended event; on failure the position is `nil`.
+`append` returns an `En57::Success` or `En57::Failure` result. On success,
+`position` is the position of the last appended event. If no events were
+appended, `position` is `nil`. On failure, no events are appended; `position`
+is the position of the latest conflicting event and `conflicting_events` lists
+the events that matched the `fail_if` scope.
 
 ```ruby
 result = event_store.append(
@@ -82,7 +85,7 @@ case event_store.append([En57::Event.new(type: "OrderPlaced")])
 in En57::Success(position:)
   puts "appended up to #{position}"
 in En57::Failure(position:, conflicting_events:)
-  puts "blocked by #{conflicting_events.size} event(s) up to position #{position}"
+  puts "blocked by #{conflicting_events.size} conflicting event(s) up to position #{position}"
 end
 ```
 
@@ -138,7 +141,8 @@ result = event_store.append(
 )
 
 if result.failure?
-  # lost the race; result.conflicting_events shows what got there first
+  # lost the race; result.position is the latest conflicting position
+  # and result.conflicting_events shows what got there first
 end
 ```
 
