@@ -27,13 +27,15 @@ CREATE TYPE en57.event AS (
 );
 
 CREATE FUNCTION en57.append_events (new_events en57.event[], append_condition jsonb DEFAULT '{}'::jsonb)
-    RETURNS void
+    RETURNS TABLE ("position" bigint)
     LANGUAGE plpgsql
     AS $$
+#variable_conflict use_column
 DECLARE
     criteria jsonb[] := ARRAY (
         SELECT
             jsonb_array_elements(COALESCE(append_condition -> 'fail_if_events_match', '[]'::jsonb)));
+    last_position bigint;
 BEGIN
     IF cardinality(criteria) > 0 AND EXISTS (
         SELECT
@@ -63,14 +65,18 @@ WHERE
         t.event_id = e.id AND t.value = req.value)))) THEN
         RAISE EXCEPTION 'append_condition_violated';
     END IF;
-    INSERT INTO en57.events (id, type, data, meta)
-    SELECT
-        e.id,
-        e.type,
-        e.data,
-        e.meta
-    FROM
-        unnest(new_events) AS e;
+    WITH inserted AS (
+        INSERT INTO en57.events (id, type, data, meta)
+        SELECT
+            e.id,
+            e.type,
+            e.data,
+            e.meta
+        FROM
+            unnest(new_events) AS e
+        RETURNING position
+    )
+    SELECT max(position) INTO last_position FROM inserted;
     INSERT INTO en57.tags (event_id, value)
     SELECT
         e.id,
@@ -78,6 +84,7 @@ WHERE
     FROM
         unnest(new_events) AS e
     CROSS JOIN LATERAL unnest(COALESCE(e.tags, ARRAY[]::text[])) AS t (value);
+    RETURN QUERY SELECT last_position;
 END;
 $$;
 

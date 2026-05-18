@@ -34,38 +34,41 @@ module En57
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(
           :exec_params,
-          nil,
+          [{ "position" => "2" }],
           [
-            "SELECT en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT position FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [expected_events, "{}"],
           ],
         )
         connection.expect(:exec, nil, ["COMMIT"])
 
-        Repository.new(
-          PgAdapter.for_connection(connection),
-          JsonSerializer.new,
-        ).append(
-          [
-            Event.new(
-              id: ids[0],
-              type: "CreditsToppedUp",
-              data: {
-                amount: 100,
-              },
-              tags: ["order_id:123"],
-            ),
-            Event.new(
-              id: ids[1],
-              type: "CreditsToppedUp",
-              data: {
-                amount: 50,
-              },
-              tags: ["order_id:234"],
-            ),
-          ],
-          fail_if: Query.all,
-        )
+        result =
+          Repository.new(
+            PgAdapter.for_connection(connection),
+            JsonSerializer.new,
+          ).append(
+            [
+              Event.new(
+                id: ids[0],
+                type: "CreditsToppedUp",
+                data: {
+                  amount: 100,
+                },
+                tags: ["order_id:123"],
+              ),
+              Event.new(
+                id: ids[1],
+                type: "CreditsToppedUp",
+                data: {
+                  amount: 50,
+                },
+                tags: ["order_id:234"],
+              ),
+            ],
+            fail_if: Query.all,
+          )
+
+        assert_equal(Result.success(position: 2), result)
       end
     end
 
@@ -78,21 +81,24 @@ module En57
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(
           :exec_params,
-          nil,
+          [{ "position" => "1" }],
           [
-            "SELECT en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT position FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [expected_events, "{}"],
           ],
         )
         connection.expect(:exec, nil, ["COMMIT"])
 
-        Repository.new(
-          PgAdapter.for_connection(connection),
-          JsonSerializer.new,
-        ).append(
-          [Event.new(id: ids[0], type: "OrderPlaced")],
-          fail_if: Query.all,
-        )
+        result =
+          Repository.new(
+            PgAdapter.for_connection(connection),
+            JsonSerializer.new,
+          ).append(
+            [Event.new(id: ids[0], type: "OrderPlaced")],
+            fail_if: Query.all,
+          )
+
+        assert_equal(Result.success(position: 1), result)
       end
     end
 
@@ -101,9 +107,9 @@ module En57
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(
           :exec_params,
-          nil,
+          [{ "position" => nil }],
           [
-            "SELECT en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT position FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [
               array_encoder.encode([]),
               '{"fail_if_events_match":[{"types":["OrderPlaced"],"after":42}]}',
@@ -112,22 +118,25 @@ module En57
         )
         connection.expect(:exec, nil, ["COMMIT"])
 
-        Repository.new(
-          PgAdapter.for_connection(connection),
-          JsonSerializer.new,
-        ).append(
-          [],
-          fail_if:
-            Query.new(
-              criteria: [
-                Query::Criteria.new(
-                  types: ["OrderPlaced"],
-                  tags: [],
-                  after: 42,
-                ),
-              ],
-            ),
-        )
+        result =
+          Repository.new(
+            PgAdapter.for_connection(connection),
+            JsonSerializer.new,
+          ).append(
+            [],
+            fail_if:
+              Query.new(
+                criteria: [
+                  Query::Criteria.new(
+                    types: ["OrderPlaced"],
+                    tags: [],
+                    after: 42,
+                  ),
+                ],
+              ),
+          )
+
+        assert_equal(Result.success(position: nil), result)
       end
     end
 
@@ -137,7 +146,7 @@ module En57
         connection.expect(:exec, nil, ["ROLLBACK"])
         connection.expect(:exec_params, nil) do |sql, params|
           assert_equal(
-            "SELECT en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT position FROM en57.append_events($1::en57.event[], $2::jsonb)",
             sql,
           )
           assert_equal([array_encoder.encode([]), "{}"], params)
@@ -513,22 +522,23 @@ module En57
       end
     end
 
-    def test_append_raises_append_condition_violated_from_pg_error_sqlstate
+    def test_append_returns_failure_on_pg_raise_exception
       with_connection do |connection|
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(:exec, nil, ["ROLLBACK"])
         connection.expect(:exec_params, nil) { raise(PG::RaiseException.new) }
 
-        assert_raises(AppendConditionViolated) do
+        result =
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
           ).append([], fail_if: Query.all)
-        end
+
+        assert_equal(Result.failure(position: nil), result)
       end
     end
 
-    def test_append_raises_append_condition_violated_from_serialization_failure_result_sqlstate
+    def test_append_returns_failure_on_serialization_failure
       with_connection do |connection|
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(:exec, nil, ["ROLLBACK"])
@@ -536,12 +546,13 @@ module En57
           raise PG::TRSerializationFailure.new
         end
 
-        assert_raises(AppendConditionViolated) do
+        result =
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
           ).append([], fail_if: Query.all)
-        end
+
+        assert_equal(Result.failure(position: nil), result)
       end
     end
 

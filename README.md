@@ -57,8 +57,11 @@ event_store = En57::EventStore.for_active_record
 
 ### Append events unconditionally
 
+`append` returns a result. On success it carries the position of the last
+appended event; on failure the position is `nil`.
+
 ```ruby
-event_store.append(
+result = event_store.append(
   [
     En57::Event.new(
       type: "OrderPlaced",
@@ -67,6 +70,20 @@ event_store.append(
     ),
   ],
 )
+
+result.success? # => true
+result.position # => 1
+```
+
+Or with pattern matching:
+
+```ruby
+case event_store.append([En57::Event.new(type: "OrderPlaced")])
+in En57::Result::Success(position:)
+  puts "appended up to #{position}"
+in En57::Result::Failure
+  puts "append condition violated"
+end
 ```
 
 ### Read all events
@@ -109,18 +126,18 @@ Example: consume credits only once per account.
 ```ruby
 account_scope = event_store.read.with_tag("account:x")
 
-begin
-  event_store.append(
-    [
-      En57::Event.new(
-        type: "CreditsUsed",
-        data: { amount: 100 },
-        tags: ["account:x"],
-      ),
-    ],
-    fail_if: account_scope.of_type("CreditsUsed"),
-  )
-rescue En57::AppendConditionViolated
+result = event_store.append(
+  [
+    En57::Event.new(
+      type: "CreditsUsed",
+      data: { amount: 100 },
+      tags: ["account:x"],
+    ),
+  ],
+  fail_if: account_scope.of_type("CreditsUsed"),
+)
+
+if result.failure?
   # lost the race; another writer already consumed credits
 end
 ```
@@ -144,18 +161,18 @@ Example: ensure no event exists with this email tag before writing.
 ```ruby
 email_tag = "email:alice@example.com"
 
-begin
-  event_store.append(
-    [
-      En57::Event.new(
-        type: "UserRegistered",
-        data: { name: "Alice" },
-        tags: [email_tag],
-      ),
-    ],
-    fail_if: event_store.read.with_tag(email_tag),
-  )
-rescue En57::AppendConditionViolated
+result = event_store.append(
+  [
+    En57::Event.new(
+      type: "UserRegistered",
+      data: { name: "Alice" },
+      tags: [email_tag],
+    ),
+  ],
+  fail_if: event_store.read.with_tag(email_tag),
+)
+
+if result.failure?
   # email already used
 end
 ```

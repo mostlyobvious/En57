@@ -42,14 +42,12 @@ module En57
                   ],
                   fail_if: account_scope.of_type("CreditsUsed"),
                 )
-              rescue AppendConditionViolated => e
-                e
               end
             end
 
           assert_equal(
             (concurrency - 1),
-            threads.map(&:value).select { AppendConditionViolated === it }.size,
+            threads.map(&:value).count(&:failure?),
           )
           assert_equal(
             1,

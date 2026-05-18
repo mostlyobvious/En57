@@ -60,10 +60,12 @@ module En57
         )
         connection.expect(:exec, nil, ["COMMIT"])
 
-        adapter.with_serializable_transaction do |conn|
-          assert_equal :written,
-                       conn.exec_params("SELECT en57.append_events()", [])
-        end
+        assert_equal(
+          :written,
+          adapter.with_serializable_transaction do |conn|
+            conn.exec_params("SELECT en57.append_events()", [])
+          end,
+        )
       end
     end
 

@@ -17,8 +17,9 @@ module En57
     def with_serializable_transaction
       with_connection do |connection|
         connection.exec("BEGIN ISOLATION LEVEL SERIALIZABLE")
-        yield connection
+        result = yield connection
         connection.exec("COMMIT")
+        result
       rescue StandardError
         connection.exec("ROLLBACK")
         raise
