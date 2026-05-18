@@ -67,7 +67,9 @@ module En57
               fail_if: event_store.read.of_type("OrderPlaced"),
             )
 
-          assert(result.failure?)
+          assert(Result::Failure === result)
+          assert_equal(1, result.position)
+          assert_equal([existing_event], result.conflicting_events)
           assert_equal([existing_event], event_store.read.each.to_a)
         end
       end

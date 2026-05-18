@@ -34,9 +34,9 @@ module En57
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(
           :exec_params,
-          [{ "position" => "2" }],
+          [{ "position" => "2", "conflicting_events" => "[]" }],
           [
-            "SELECT position FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [expected_events, "{}"],
           ],
         )
@@ -81,9 +81,9 @@ module En57
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(
           :exec_params,
-          [{ "position" => "1" }],
+          [{ "position" => "1", "conflicting_events" => "[]" }],
           [
-            "SELECT position FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [expected_events, "{}"],
           ],
         )
@@ -107,9 +107,9 @@ module En57
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(
           :exec_params,
-          [{ "position" => nil }],
+          [{ "position" => nil, "conflicting_events" => "[]" }],
           [
-            "SELECT position FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [
               array_encoder.encode([]),
               '{"fail_if_events_match":[{"types":["OrderPlaced"],"after":42}]}',
@@ -146,7 +146,7 @@ module En57
         connection.expect(:exec, nil, ["ROLLBACK"])
         connection.expect(:exec_params, nil) do |sql, params|
           assert_equal(
-            "SELECT position FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
             sql,
           )
           assert_equal([array_encoder.encode([]), "{}"], params)
@@ -522,19 +522,76 @@ module En57
       end
     end
 
-    def test_append_returns_failure_on_pg_raise_exception
+    def test_append_returns_failure_when_condition_matches
       with_connection do |connection|
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
-        connection.expect(:exec, nil, ["ROLLBACK"])
-        connection.expect(:exec_params, nil) { raise(PG::RaiseException.new) }
+        connection.expect(
+          :exec_params,
+          [
+            {
+              "position" => "5",
+              "conflicting_events" =>
+                JSON.generate(
+                  [
+                    {
+                      id: ids[2],
+                      type: "OrderPlaced",
+                      data: '{"amount":100}',
+                      meta: '{"amount":{"k":"Symbol"}}',
+                      tags: ["order_id:123"],
+                    },
+                    {
+                      id: ids[3],
+                      type: "OrderPlaced",
+                      data: nil,
+                      meta: nil,
+                      tags: [],
+                    },
+                  ],
+                ),
+            },
+          ],
+          [
+            "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            [
+              array_encoder.encode([]),
+              '{"fail_if_events_match":[{"types":["OrderPlaced"]}]}',
+            ],
+          ],
+        )
+        connection.expect(:exec, nil, ["COMMIT"])
 
         result =
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
-          ).append([], fail_if: Query.all)
+          ).append(
+            [],
+            fail_if:
+              Query.new(
+                criteria: [
+                  Query::Criteria.new(types: ["OrderPlaced"], tags: []),
+                ],
+              ),
+          )
 
-        assert_equal(Result.failure(position: nil), result)
+        assert_equal(
+          Result.failure(
+            position: 5,
+            conflicting_events: [
+              Event.new(
+                id: ids[2],
+                type: "OrderPlaced",
+                data: {
+                  amount: 100,
+                },
+                tags: ["order_id:123"],
+              ),
+              Event.new(id: ids[3], type: "OrderPlaced", data: {}, tags: []),
+            ],
+          ),
+          result,
+        )
       end
     end
 
@@ -552,7 +609,10 @@ module En57
             JsonSerializer.new,
           ).append([], fail_if: Query.all)
 
-        assert_equal(Result.failure(position: nil), result)
+        assert_equal(
+          Result.failure(position: nil, conflicting_events: []),
+          result,
+        )
       end
     end
 

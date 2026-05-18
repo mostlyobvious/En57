@@ -32,20 +32,42 @@ module En57
         :fail_if_events_match
       ] = fail_if_events_match unless fail_if_events_match.empty?
 
-      result =
-        @adapter.with_serializable_transaction do |connection|
-          connection.exec_params(
-            "SELECT position FROM en57.append_events($1::en57.event[], $2::jsonb)",
-            [
-              @array_encoder.encode(event_records),
-              JSON.generate(append_condition),
-            ],
-          )
-        end
-      position = result.first.fetch("position")
-      Result.success(position: position && Integer(position))
-    rescue PG::RaiseException, PG::TRSerializationFailure
-      Result.failure(position: nil)
+      row =
+        @adapter
+          .with_serializable_transaction do |connection|
+            connection.exec_params(
+              "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
+              [
+                @array_encoder.encode(event_records),
+                JSON.generate(append_condition),
+              ],
+            )
+          end
+          .first
+      raw_position = row.fetch("position")
+      position = raw_position && Integer(raw_position)
+      conflicting_events =
+        JSON
+          .parse(row.fetch("conflicting_events"))
+          .map do |conflict|
+            Event.new(
+              id: conflict.fetch("id"),
+              type: conflict.fetch("type"),
+              data:
+                @serializer.load(
+                  conflict.fetch("data") || "{}",
+                  conflict.fetch("meta"),
+                ),
+              tags: conflict.fetch("tags"),
+            )
+          end
+      if conflicting_events.empty?
+        Result.success(position:)
+      else
+        Result.failure(position:, conflicting_events:)
+      end
+    rescue PG::TRSerializationFailure
+      Result.failure(position: nil, conflicting_events: [])
     end
 
     def read(query)

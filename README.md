@@ -81,8 +81,8 @@ Or with pattern matching:
 case event_store.append([En57::Event.new(type: "OrderPlaced")])
 in En57::Result::Success(position:)
   puts "appended up to #{position}"
-in En57::Result::Failure
-  puts "append condition violated"
+in En57::Result::Failure(position:, conflicting_events:)
+  puts "blocked by #{conflicting_events.size} event(s) up to position #{position}"
 end
 ```
 
@@ -138,7 +138,7 @@ result = event_store.append(
 )
 
 if result.failure?
-  # lost the race; another writer already consumed credits
+  # lost the race; result.conflicting_events shows what got there first
 end
 ```
 
@@ -173,6 +173,6 @@ result = event_store.append(
 )
 
 if result.failure?
-  # email already used
+  # email already used; result.conflicting_events lists the prior registration(s)
 end
 ```
