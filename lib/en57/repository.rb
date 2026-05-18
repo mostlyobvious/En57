@@ -66,8 +66,6 @@ module En57
       else
         Failure.new(position:, conflicting_events:)
       end
-    rescue PG::TRSerializationFailure
-      Failure.new(position: nil, conflicting_events: [])
     end
 
     def read(query)

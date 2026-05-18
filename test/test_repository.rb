@@ -595,7 +595,7 @@ module En57
       end
     end
 
-    def test_append_returns_failure_on_serialization_failure
+    def test_append_lets_serialization_failure_surface
       with_connection do |connection|
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(:exec, nil, ["ROLLBACK"])
@@ -603,13 +603,12 @@ module En57
           raise PG::TRSerializationFailure.new
         end
 
-        result =
+        assert_raises(PG::TRSerializationFailure) do
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
           ).append([], fail_if: Query.all)
-
-        assert_equal(Failure.new(position: nil, conflicting_events: []), result)
+        end
       end
     end
 

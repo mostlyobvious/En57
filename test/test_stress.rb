@@ -42,12 +42,14 @@ module En57
                   ],
                   fail_if: account_scope.of_type("CreditsUsed"),
                 )
+              rescue PG::TRSerializationFailure => e
+                e
               end
             end
 
           assert_equal(
             (concurrency - 1),
-            threads.map(&:value).count(&:failure?),
+            threads.map(&:value).reject { Success === it }.size,
           )
           assert_equal(
             1,
