@@ -62,12 +62,12 @@ module En57
             )
           end
       if conflicting_events.empty?
-        Result.success(position:)
+        Success.new(position:)
       else
-        Result.failure(position:, conflicting_events:)
+        Failure.new(position:, conflicting_events:)
       end
     rescue PG::TRSerializationFailure
-      Result.failure(position: nil, conflicting_events: [])
+      Failure.new(position: nil, conflicting_events: [])
     end
 
     def read(query)

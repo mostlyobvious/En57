@@ -79,9 +79,9 @@ Or with pattern matching:
 
 ```ruby
 case event_store.append([En57::Event.new(type: "OrderPlaced")])
-in En57::Result::Success(position:)
+in En57::Success(position:)
   puts "appended up to #{position}"
-in En57::Result::Failure(position:, conflicting_events:)
+in En57::Failure(position:, conflicting_events:)
   puts "blocked by #{conflicting_events.size} event(s) up to position #{position}"
 end
 ```

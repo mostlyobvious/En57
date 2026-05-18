@@ -68,7 +68,7 @@ module En57
             fail_if: Query.all,
           )
 
-        assert_equal(Result.success(position: 2), result)
+        assert_equal(Success.new(position: 2), result)
       end
     end
 
@@ -98,7 +98,7 @@ module En57
             fail_if: Query.all,
           )
 
-        assert_equal(Result.success(position: 1), result)
+        assert_equal(Success.new(position: 1), result)
       end
     end
 
@@ -136,7 +136,7 @@ module En57
               ),
           )
 
-        assert_equal(Result.success(position: nil), result)
+        assert_equal(Success.new(position: nil), result)
       end
     end
 
@@ -576,7 +576,7 @@ module En57
           )
 
         assert_equal(
-          Result.failure(
+          Failure.new(
             position: 5,
             conflicting_events: [
               Event.new(
@@ -609,10 +609,7 @@ module En57
             JsonSerializer.new,
           ).append([], fail_if: Query.all)
 
-        assert_equal(
-          Result.failure(position: nil, conflicting_events: []),
-          result,
-        )
+        assert_equal(Failure.new(position: nil, conflicting_events: []), result)
       end
     end
 
