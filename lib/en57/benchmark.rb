@@ -176,6 +176,8 @@ module En57
       end
     end
 
+    require_relative "../benchmark/append_no_fail_if"
+    require_relative "../benchmark/append_non_conflicting_tags"
     require_relative "../benchmark/concurrent_append_no_fail_if"
     require_relative "../benchmark/concurrent_append_non_conflicting_tags"
     require_relative "../benchmark/concurrent_append_conflicting_tags"
@@ -192,6 +194,32 @@ module En57
 
       def self.scenarios(runs:)
         {
+          "append-no-fail-if" => ->(database_url, warmup_runs, measure) do
+            AppendNoFailIf.new(
+              name: "Append, no fail_if",
+              database_url:,
+              measure:,
+              warmup_runs:,
+              runs: runs * 10,
+              concurrency: 1,
+              batch_size: 100,
+            )
+          end,
+          "append-non-conflicting-tags" => ->(
+            database_url,
+            warmup_runs,
+            measure
+          ) do
+            AppendNonConflictingTags.new(
+              name: "Append, non-conflicting tags",
+              database_url:,
+              measure:,
+              warmup_runs:,
+              runs: runs * 10,
+              concurrency: 1,
+              batch_size: 100,
+            )
+          end,
           "concurrent-append-no-fail-if" => ->(
             database_url,
             warmup_runs,
@@ -306,7 +334,9 @@ module En57
           @out.puts(@runner.classic(runs: @runs, names: [name]).run)
           0
         else
-          @err.puts("Usage: benchmark list | benchmark run NAME | benchmark run all")
+          @err.puts(
+            "Usage: benchmark list | benchmark run NAME | benchmark run all",
+          )
           1
         end
       end
