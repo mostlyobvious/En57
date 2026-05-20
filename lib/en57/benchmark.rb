@@ -181,57 +181,63 @@ module En57
     require_relative "../benchmark/concurrent_append_conflicting_tags"
 
     class Runner
-      def self.classic(runs: 50)
-        new(
-          formatter: Table.new,
-          scenarios: {
-            "concurrent-append-no-fail-if" => ->(
-              database_url,
-              warmup_runs,
-              measure
-            ) do
-              ConcurrentAppendNoFailIf.new(
-                name: "Concurrent append, no fail_if",
-                database_url:,
-                measure:,
-                warmup_runs:,
-                runs:,
-                concurrency: 10,
-                batch_size: 100,
-              )
-            end,
-            "concurrent-append-non-conflicting-tags" => ->(
-              database_url,
-              warmup_runs,
-              measure
-            ) do
-              ConcurrentAppendNonConflictingTags.new(
-                name: "Concurrent append, non-conflicting tags",
-                database_url:,
-                measure:,
-                warmup_runs:,
-                runs:,
-                concurrency: 10,
-                batch_size: 100,
-              )
-            end,
-            "concurrent-append-conflicting-tags" => ->(
-              database_url,
-              warmup_runs,
-              measure
-            ) do
-              ConcurrentAppendConflictingTags.new(
-                name: "Concurrent append, conflicting tags",
-                database_url:,
-                measure:,
-                warmup_runs:,
-                runs:,
-                concurrency: 10,
-                batch_size: 100,
-              )
-            end,
-          },
-        )
+      def self.classic(runs: 50, names: nil)
+        selected_scenarios = scenarios(runs:)
+        selected_scenarios = selected_scenarios.slice(*names) if names
+
+        new(formatter: Table.new, scenarios: selected_scenarios)
+      end
+
+      def self.names = scenarios(runs: 1).keys
+
+      def self.scenarios(runs:)
+        {
+          "concurrent-append-no-fail-if" => ->(
+            database_url,
+            warmup_runs,
+            measure
+          ) do
+            ConcurrentAppendNoFailIf.new(
+              name: "Concurrent append, no fail_if",
+              database_url:,
+              measure:,
+              warmup_runs:,
+              runs:,
+              concurrency: 10,
+              batch_size: 100,
+            )
+          end,
+          "concurrent-append-non-conflicting-tags" => ->(
+            database_url,
+            warmup_runs,
+            measure
+          ) do
+            ConcurrentAppendNonConflictingTags.new(
+              name: "Concurrent append, non-conflicting tags",
+              database_url:,
+              measure:,
+              warmup_runs:,
+              runs:,
+              concurrency: 10,
+              batch_size: 100,
+            )
+          end,
+          "concurrent-append-conflicting-tags" => ->(
+            database_url,
+            warmup_runs,
+            measure
+          ) do
+            ConcurrentAppendConflictingTags.new(
+              name: "Concurrent append, conflicting tags",
+              database_url:,
+              measure:,
+              warmup_runs:,
+              runs:,
+              concurrency: 10,
+              batch_size: 100,
+            )
+          end,
+        }
       end
 
       def initialize(scenarios:, formatter:)
@@ -271,5 +277,46 @@ module En57
       end
     end
 
+    class CLI
+      def initialize(
+        argv,
+        out: $stdout,
+        err: $stderr,
+        runner: Runner,
+        runs: Integer(ENV.fetch("BENCHMARK_RUNS", 10))
+      )
+        @argv = argv
+        @err = err
+        @out = out
+        @runner = runner
+        @runs = runs
+      end
+
+      def run
+        case @argv
+        in ["list"]
+          @out.puts(@runner.names)
+          0
+        in ["run", "all"]
+          @out.puts(@runner.classic(runs: @runs).run)
+          0
+        in ["run", name]
+          return unknown(name) unless @runner.names.include?(name)
+
+          @out.puts(@runner.classic(runs: @runs, names: [name]).run)
+          0
+        else
+          @err.puts("Usage: benchmark list | benchmark run NAME | benchmark run all")
+          1
+        end
+      end
+
+      private
+
+      def unknown(name)
+        @err.puts("Unknown benchmark: #{name}")
+        1
+      end
+    end
   end
 end

@@ -172,6 +172,65 @@ module En57
         assert_equal(2, scenario.retry_count)
       end
 
+      def test_cli_lists_available_benchmark_names
+        runner = Class.new { def self.names = %w[first second] }
+        output = StringIO.new
+
+        assert_equal(0, CLI.new(["list"], out: output, runner:).run)
+        assert_equal("first\nsecond\n", output.string)
+      end
+
+      def test_cli_runs_all_benchmarks
+        runner =
+          Class.new do
+            class << self
+              attr_reader :classic_args
+            end
+
+            def self.classic(**kwargs)
+              @classic_args = kwargs
+              Data.define(:run).new("results")
+            end
+          end
+        output = StringIO.new
+
+        assert_equal(0, CLI.new(%w[run all], out: output, runner:, runs: 3).run)
+        assert_equal({ runs: 3 }, runner.classic_args)
+        assert_equal("results\n", output.string)
+      end
+
+      def test_cli_runs_named_benchmark
+        runner =
+          Class.new do
+            class << self
+              attr_reader :classic_args
+            end
+
+            def self.names = %w[one two]
+
+            def self.classic(**kwargs)
+              @classic_args = kwargs
+              Data.define(:run).new("result")
+            end
+          end
+        output = StringIO.new
+
+        assert_equal(0, CLI.new(%w[run one], out: output, runner:, runs: 3).run)
+        assert_equal({ runs: 3, names: ["one"] }, runner.classic_args)
+        assert_equal("result\n", output.string)
+      end
+
+      def test_cli_rejects_unknown_benchmark_name
+        runner = Class.new { def self.names = %w[one two] }
+        error = StringIO.new
+
+        assert_equal(
+          1,
+          CLI.new(%w[run unknown], err: error, runner:, runs: 3).run,
+        )
+        assert_equal("Unknown benchmark: unknown\n", error.string)
+      end
+
       def test_measurement_calculates_summary_statistics
         measurement = Measurement.from([0.3, 0.1, 0.2])
 

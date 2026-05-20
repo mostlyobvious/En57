@@ -2,6 +2,4 @@
 
 require_relative "../lib/en57/benchmark"
 
-puts En57::Benchmark::Runner.classic(
-       runs: Integer(ENV.fetch("BENCHMARK_RUNS", 10)),
-     ).run
+exit En57::Benchmark::CLI.new(ARGV).run
