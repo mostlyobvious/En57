@@ -114,6 +114,7 @@ module En57
         database_url:,
         measure:,
         runs:,
+        warmup_runs:,
         concurrency:,
         batch_size:
       )
@@ -123,19 +124,24 @@ module En57
         @database_url = database_url
         @measure = measure
         @runs = runs
+        @warmup_runs = warmup_runs
       end
 
       attr_reader :name, :runs
 
+
       def run
+        warmup
         @runs.times { call }
         verify
       end
 
       private
 
+      def total_runs = @runs + @warmup_runs
       def call = nil
       def verify = true
+      def warmup = @warmup_runs.times { call }
 
       def concurrently(concurrency)
         Array
@@ -156,32 +162,36 @@ module En57
           scenarios: {
             "concurrent-append-non-conflicting-tags" => ->(
               database_url,
+              warmup_runs,
               measure
             ) do
               ConcurrentAppendNonConflictingTags.new(
                 name: "Concurrent append, non-conflicting tags",
                 database_url:,
                 measure:,
+                warmup_runs:,
                 runs:,
                 concurrency: 10,
                 batch_size: 100,
               )
             end,
-            "concurrent-append-no-fail-if" => ->(database_url, measure) do
+            "concurrent-append-no-fail-if" => ->(database_url, warmup_runs, measure) do
               ConcurrentAppendNoFailIf.new(
                 name: "Concurrent append, no fail_if",
                 database_url:,
                 measure:,
+                warmup_runs:,
                 runs:,
                 concurrency: 10,
                 batch_size: 100,
               )
             end,
-            "concurrent-append-conflicting-tags" => ->(database_url, measure) do
+            "concurrent-append-conflicting-tags" => ->(database_url, warmup_runs, measure) do
               ConcurrentAppendConflictingTags.new(
                 name: "Concurrent append, conflicting tags",
                 database_url:,
                 measure:,
+                warmup_runs:,
                 runs:,
                 concurrency: 10,
                 batch_size: 100,
@@ -204,10 +214,11 @@ module En57
               scenario =
                 mk_scenario.call(
                   server.url,
+                  warmup_runs = 2,
                   ->(&block) { samples << ::Benchmark.realtime { block.call } },
                 )
               verified = scenario.run
-              measurement = Measurement.from(samples)
+              measurement = Measurement.from(samples.drop(warmup_runs))
 
               Result.new(
                 name: scenario.name,
@@ -257,7 +268,8 @@ module En57
       end
 
       def verify =
-        @event_store.read.each.to_a.size == @runs * @concurrency * @batch_size
+        @event_store.read.each.to_a.size ==
+          total_runs * @concurrency * @batch_size
     end
 
     class ConcurrentAppendNonConflictingTags < Scenario
@@ -292,7 +304,8 @@ module En57
       end
 
       def verify =
-        @event_store.read.each.to_a.size == @runs * @concurrency * @batch_size
+        @event_store.read.each.to_a.size ==
+          total_runs * @concurrency * @batch_size
     end
 
     class ConcurrentAppendConflictingTags < Scenario
@@ -331,7 +344,8 @@ module En57
       end
 
       def verify =
-        @event_store.read.each.to_a.size == @runs * @concurrency * @batch_size
+        @event_store.read.each.to_a.size ==
+          total_runs * @concurrency * @batch_size
     end
   end
 end
