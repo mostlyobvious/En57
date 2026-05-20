@@ -14,11 +14,16 @@ module En57
       end
     end
 
-    def with_serializable_transaction
+    def with_transaction(&block) = run_transaction({}, &block)
+
+    def with_serializable_transaction(&block) =
+      run_transaction({ isolation: :serializable }, &block)
+
+    private
+
+    def run_transaction(options)
       @connection_pool.with_connection do |connection|
-        connection.transaction(isolation: :serializable) do
-          yield connection.raw_connection
-        end
+        connection.transaction(**options) { yield connection.raw_connection }
       end
     end
   end

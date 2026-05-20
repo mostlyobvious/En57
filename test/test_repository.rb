@@ -6,7 +6,7 @@ module En57
   class TestRepository < Minitest::Test
     cover Repository
 
-    def test_append_wraps_write_in_serializable_transaction
+    def test_append_without_fail_if_uses_plain_transaction
       expected_events =
         array_encoder.encode(
           [
@@ -31,7 +31,7 @@ module En57
           ],
         )
       with_connection do |connection|
-        connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
+        connection.expect(:exec, nil, ["BEGIN"])
         connection.expect(
           :exec_params,
           nil,
@@ -75,7 +75,7 @@ module En57
           [record_encoder.encode([ids[0], "OrderPlaced", nil, nil, "{}"])],
         )
       with_connection do |connection|
-        connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
+        connection.expect(:exec, nil, ["BEGIN"])
         connection.expect(
           :exec_params,
           nil,
@@ -133,7 +133,7 @@ module En57
 
     def test_append_rolls_back_transaction_on_pg_failure
       with_connection do |connection|
-        connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
+        connection.expect(:exec, nil, ["BEGIN"])
         connection.expect(:exec, nil, ["ROLLBACK"])
         connection.expect(:exec_params, nil) do |sql, params|
           assert_equal(
@@ -155,7 +155,7 @@ module En57
 
     def test_append_rolls_back_transaction_on_failure
       with_connection do |connection|
-        connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
+        connection.expect(:exec, nil, ["BEGIN"])
         connection.expect(:exec, nil, ["ROLLBACK"])
         connection.expect(:exec_params, nil) { raise RuntimeError, "boom" }
 
@@ -523,7 +523,7 @@ module En57
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
-          ).append([], fail_if: Query.all)
+          ).append([], fail_if: fail_if_with_criteria)
         end
       end
     end
@@ -540,7 +540,7 @@ module En57
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
-          ).append([], fail_if: Query.all)
+          ).append([], fail_if: fail_if_with_criteria)
         end
       end
     end
@@ -559,5 +559,11 @@ module En57
     def array_encoder = @array_encoder ||= PG::TextEncoder::Array.new
 
     def record_encoder = @record_encoder ||= PG::TextEncoder::Record.new
+
+    def fail_if_with_criteria
+      Query.new(
+        criteria: [Query::Criteria.new(types: ["OrderPlaced"], tags: [])],
+      )
+    end
   end
 end

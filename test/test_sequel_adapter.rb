@@ -73,6 +73,43 @@ module En57
       end
     end
 
+    def test_with_transaction_synchronizes_inside_transaction
+      with_mock_adapter do |database, connection, adapter|
+        database.expect(:transaction, :committed) { |&block| block.call }
+        database.expect(:synchronize, :written) do |&block|
+          block.call(connection)
+        end
+        connection.expect(
+          :exec_params,
+          :written,
+          ["SELECT en57.append_events()", []],
+        )
+
+        assert_equal(
+          :committed,
+          adapter.with_transaction do |conn|
+            assert_equal(
+              :written,
+              conn.exec_params("SELECT en57.append_events()", []),
+            )
+          end,
+        )
+      end
+    end
+
+    def test_with_transaction_unwraps_pg_errors
+      assert_raises(PG::RaiseException) do
+        with_mock_adapter do |database, _connection, adapter|
+          database.expect(:transaction, nil) { |&block| block.call }
+          database.expect(:synchronize, nil) do
+            raise sequel_error(PG::RaiseException.new("boom"))
+          end
+
+          adapter.with_transaction { flunk "not yielded" }
+        end
+      end
+    end
+
     private
 
     def sequel_error(pg_error)

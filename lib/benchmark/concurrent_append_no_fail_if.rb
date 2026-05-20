@@ -22,14 +22,7 @@ module En57
 
           barrier.wait
 
-          @measure.call do
-            begin
-              @event_store.append(events)
-            rescue AppendConditionViolated
-              record_retry
-              retry
-            end
-          end
+          @measure.call { @event_store.append(events) }
         end
       end
 

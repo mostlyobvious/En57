@@ -14,9 +14,16 @@ module En57
 
     def with_connection(&block) = @connection_pool.with(&block)
 
-    def with_serializable_transaction
+    def with_transaction(&block) = run_transaction("BEGIN", &block)
+
+    def with_serializable_transaction(&block) =
+      run_transaction("BEGIN ISOLATION LEVEL SERIALIZABLE", &block)
+
+    private
+
+    def run_transaction(begin_statement)
       with_connection do |connection|
-        connection.exec("BEGIN ISOLATION LEVEL SERIALIZABLE")
+        connection.exec(begin_statement)
         yield connection
         connection.exec("COMMIT")
       rescue StandardError

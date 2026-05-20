@@ -20,3 +20,7 @@ matcher:
     - En57::JsonSerializer#optional_big_decimal_type
     - En57::Migrator*
     - En57::Repository#initialize
+    # `run_transaction({})` vs `run_transaction(nil)` is an equivalent mutant:
+    # `**{}` and `**nil` both splat to no keyword arguments.
+    - En57::ActiveRecordAdapter#with_transaction
+    - En57::SequelAdapter#with_transaction

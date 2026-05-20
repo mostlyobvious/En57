@@ -13,8 +13,15 @@ module En57
       @database.synchronize(&block)
     end
 
-    def with_serializable_transaction
-      @database.transaction(isolation: :serializable) do
+    def with_transaction(&block) = run_transaction({}, &block)
+
+    def with_serializable_transaction(&block) =
+      run_transaction({ isolation: :serializable }, &block)
+
+    private
+
+    def run_transaction(options)
+      @database.transaction(**options) do
         @database.synchronize { |connection| yield connection }
       end
     rescue Sequel::DatabaseError => e

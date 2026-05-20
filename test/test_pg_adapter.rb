@@ -94,6 +94,46 @@ module En57
       assert_same error, raised
     end
 
+    def test_with_transaction_commits_on_success
+      with_mock_adapter do |connection, adapter|
+        connection.expect(:exec, nil, ["BEGIN"])
+        connection.expect(
+          :exec_params,
+          :written,
+          ["SELECT en57.append_events()", []],
+        )
+        connection.expect(:exec, nil, ["COMMIT"])
+
+        adapter.with_transaction do |conn|
+          assert_equal :written,
+                       conn.exec_params("SELECT en57.append_events()", [])
+        end
+      end
+    end
+
+    def test_with_transaction_rolls_back_on_failure
+      error = RuntimeError.new("boom")
+
+      raised =
+        assert_raises(RuntimeError) do
+          with_mock_adapter do |connection, adapter|
+            connection.expect(:exec, nil, ["BEGIN"])
+            connection.expect(:exec_params, nil) do |sql, params|
+              assert_equal "SELECT en57.append_events()", sql
+              assert_equal [], params
+              raise error
+            end
+            connection.expect(:exec, nil, ["ROLLBACK"])
+
+            adapter.with_transaction do |conn|
+              conn.exec_params("SELECT en57.append_events()", [])
+            end
+          end
+        end
+
+      assert_same error, raised
+    end
+
     private
 
     def with_mock_adapter
