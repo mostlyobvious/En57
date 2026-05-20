@@ -9,14 +9,31 @@ require_relative "../en57"
 
 module En57
   module Benchmark
-    Result = Data.define(:name, :runs, :mean, :stddev, :verified)
+    Result = Data.define(
+      :name,
+      :runs,
+      :mean,
+      :stddev,
+      :min,
+      :max,
+      :median,
+      :verified,
+    )
 
     class Table
       def format(results)
         rows = results.select(&:verified)
         return "" if rows.empty?
 
-        header = ["Scenario", "Runs", "Mean latency", "Stddev"]
+        header = [
+          "Scenario",
+          "Runs",
+          "Mean latency",
+          "Stddev",
+          "Min",
+          "Max",
+          "Median",
+        ]
         body =
           rows.map do |result|
             [
@@ -24,6 +41,9 @@ module En57
               result.runs.to_s,
               milliseconds(result.mean),
               milliseconds(result.stddev),
+              milliseconds(result.min),
+              milliseconds(result.max),
+              milliseconds(result.median),
             ]
           end
         widths = header.zip(*body).map { |values| values.map(&:length).max }
@@ -31,9 +51,9 @@ module En57
 
         [
           rule,
-          table_row(header, widths, %i[left left left left]),
+          table_row(header, widths, %i[left left left left left left left]),
           rule,
-          *body.map { table_row(it, widths, %i[left right right right]) },
+          *body.map { table_row(it, widths, %i[left right right right right right right]) },
           rule,
         ].join("\n")
       end
@@ -57,6 +77,7 @@ module En57
     class Measurement
       def self.from(samples)
         mean = samples.sum.fdiv(samples.size)
+        sorted_samples = samples.sort
 
         new(
           mean:,
@@ -64,14 +85,26 @@ module En57
             Math.sqrt(
               samples.sum { |sample| (sample - mean)**2 }.fdiv(samples.size),
             ),
+          min: sorted_samples.first,
+          max: sorted_samples.last,
+          median:
+            if samples.size.odd?
+              sorted_samples[samples.size / 2]
+            else
+              (sorted_samples[(samples.size / 2) - 1] +
+                sorted_samples[samples.size / 2]).fdiv(2)
+            end,
         )
       end
 
-      attr_reader :mean, :stddev
+      attr_reader :mean, :stddev, :min, :max, :median
 
-      def initialize(mean:, stddev:)
+      def initialize(mean:, stddev:, min:, max:, median:)
         @mean = mean
         @stddev = stddev
+        @min = min
+        @max = max
+        @median = median
       end
     end
 
@@ -181,6 +214,9 @@ module En57
                 runs: scenario.runs,
                 mean: measurement.mean,
                 stddev: measurement.stddev,
+                min: measurement.min,
+                max: measurement.max,
+                median: measurement.median,
                 verified:,
               )
             end
