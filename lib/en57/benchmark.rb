@@ -9,17 +9,18 @@ require_relative "../en57"
 
 module En57
   module Benchmark
-    Result = Data.define(
-      :name,
-      :runs,
-      :mean,
-      :stddev,
-      :min,
-      :max,
-      :median,
-      :retry_count,
-      :verified,
-    )
+    Result =
+      Data.define(
+        :name,
+        :runs,
+        :mean,
+        :stddev,
+        :min,
+        :max,
+        :median,
+        :retry_count,
+        :verified,
+      )
 
     class Table
       def format(results)
@@ -54,9 +55,19 @@ module En57
 
         [
           rule,
-          table_row(header, widths, %i[left left left left left left left left]),
+          table_row(
+            header,
+            widths,
+            %i[left left left left left left left left],
+          ),
           rule,
-          *body.map { table_row(it, widths, %i[left right right right right right right right]) },
+          *body.map do
+            table_row(
+              it,
+              widths,
+              %i[left right right right right right right right],
+            )
+          end,
           rule,
         ].join("\n")
       end
@@ -94,8 +105,10 @@ module En57
             if samples.size.odd?
               sorted_samples[samples.size / 2]
             else
-              (sorted_samples[(samples.size / 2) - 1] +
-                sorted_samples[samples.size / 2]).fdiv(2)
+              (
+                sorted_samples[(samples.size / 2) - 1] +
+                  sorted_samples[samples.size / 2]
+              ).fdiv(2)
             end,
         )
       end
@@ -163,11 +176,30 @@ module En57
       end
     end
 
+    require_relative "../benchmark/concurrent_append_no_fail_if"
+    require_relative "../benchmark/concurrent_append_non_conflicting_tags"
+    require_relative "../benchmark/concurrent_append_conflicting_tags"
+
     class Runner
       def self.classic(runs: 50)
         new(
           formatter: Table.new,
           scenarios: {
+            "concurrent-append-no-fail-if" => ->(
+              database_url,
+              warmup_runs,
+              measure
+            ) do
+              ConcurrentAppendNoFailIf.new(
+                name: "Concurrent append, no fail_if",
+                database_url:,
+                measure:,
+                warmup_runs:,
+                runs:,
+                concurrency: 10,
+                batch_size: 100,
+              )
+            end,
             "concurrent-append-non-conflicting-tags" => ->(
               database_url,
               warmup_runs,
@@ -183,18 +215,11 @@ module En57
                 batch_size: 100,
               )
             end,
-            "concurrent-append-no-fail-if" => ->(database_url, warmup_runs, measure) do
-              ConcurrentAppendNoFailIf.new(
-                name: "Concurrent append, no fail_if",
-                database_url:,
-                measure:,
-                warmup_runs:,
-                runs:,
-                concurrency: 10,
-                batch_size: 100,
-              )
-            end,
-            "concurrent-append-conflicting-tags" => ->(database_url, warmup_runs, measure) do
+            "concurrent-append-conflicting-tags" => ->(
+              database_url,
+              warmup_runs,
+              measure
+            ) do
               ConcurrentAppendConflictingTags.new(
                 name: "Concurrent append, conflicting tags",
                 database_url:,
@@ -246,118 +271,5 @@ module En57
       end
     end
 
-    class ConcurrentAppendNoFailIf < Scenario
-      def initialize(...)
-        super
-        @event_store =
-          EventStore.for_pooled_pg(@database_url, max_connections: @concurrency)
-      end
-
-      private
-
-      def call
-        type = "event_benchmarked"
-        barrier = Concurrent::CyclicBarrier.new(@concurrency)
-
-        concurrently(@concurrency) do
-          tags = %W[writer:#{SecureRandom.hex(4)}]
-          events =
-            Array.new(@batch_size) { En57::Event.new(type: type, tags: tags) }
-
-          barrier.wait
-
-          @measure.call do
-            begin
-              @event_store.append(events)
-            rescue AppendConditionViolated
-              record_retry
-              retry
-            end
-          end
-        end
-      end
-
-      def verify =
-        @event_store.read.each.to_a.size ==
-          total_runs * @concurrency * @batch_size
-    end
-
-    class ConcurrentAppendNonConflictingTags < Scenario
-      def initialize(...)
-        super
-        @event_store =
-          EventStore.for_pooled_pg(@database_url, max_connections: @concurrency)
-      end
-
-      private
-
-      def call
-        type = "event_benchmarked"
-        barrier = Concurrent::CyclicBarrier.new(@concurrency)
-
-        concurrently(@concurrency) do
-          tags = %W[writer:#{SecureRandom.hex(4)}]
-          scope = @event_store.read.of_type(type).with_tag(tags)
-          events =
-            Array.new(@batch_size) { En57::Event.new(type: type, tags: tags) }
-
-          barrier.wait
-
-          @measure.call do
-            begin
-              @event_store.append(events, fail_if: scope.after(position = 0))
-            rescue AppendConditionViolated
-              record_retry
-              retry
-            end
-          end
-        end
-      end
-
-      def verify =
-        @event_store.read.each.to_a.size ==
-          total_runs * @concurrency * @batch_size
-    end
-
-    class ConcurrentAppendConflictingTags < Scenario
-      def initialize(...)
-        super
-        @event_store =
-          EventStore.for_pooled_pg(@database_url, max_connections: @concurrency)
-      end
-
-      private
-
-      def call
-        type = "event_benchmarked"
-        tags = %W[writer:#{SecureRandom.hex(4)}]
-        barrier = Concurrent::CyclicBarrier.new(@concurrency)
-
-        concurrently(@concurrency) do
-          scope = @event_store.read.of_type(type).with_tag(tags)
-          events =
-            Array.new(@batch_size) { En57::Event.new(type: type, tags: tags) }
-          position = 0
-
-          barrier.wait
-
-          @measure.call do
-            begin
-              @event_store.append(events, fail_if: scope.after(position))
-            rescue AppendConditionViolated
-              record_retry
-              scope.each_with_position do |_event, event_position|
-                position = event_position
-              end
-              retry
-            end
-          end
-        end
-      end
-
-      def verify =
-        @event_store.read.each.to_a.size ==
-          total_runs * @concurrency * @batch_size
-    end
   end
 end
