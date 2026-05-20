@@ -197,7 +197,7 @@ module En57
       end
 
       def run
-        @formatter.format(
+        results =
           @scenarios.map do |instance_name, mk_scenario|
             PgEphemeral.with_server(instance_name:) do |server|
               samples = []
@@ -220,8 +220,9 @@ module En57
                 verified:,
               )
             end
-          end,
-        )
+          end
+
+        @formatter.format(results.select(&:verified))
       end
     end
 

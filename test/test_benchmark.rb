@@ -52,6 +52,47 @@ module En57
         )
       end
 
+      def test_runner_formats_only_verified_results
+        formatter = Object.new
+        formatted_results = nil
+
+        formatter.define_singleton_method(:format) do |results|
+          formatted_results = results
+          "formatted"
+        end
+
+        server = Data.define(:url).new("postgres://example")
+        mk_scenario = ->(name, verified) do
+          ->(_database_url, measure) do
+            Data
+              .define(:name, :runs, :measure, :verified) do
+                def run
+                  measure.call { nil }
+                  verified
+                end
+              end
+              .new(name, 1, measure, verified)
+          end
+        end
+
+        output =
+          PgEphemeral.stub(
+            :with_server,
+            ->(instance_name:, &block) { block.call(server) },
+          ) do
+            Runner.new(
+              formatter:,
+              scenarios: {
+                "verified" => mk_scenario.call("verified", true),
+                "unverified" => mk_scenario.call("unverified", false),
+              },
+            ).run
+          end
+
+        assert_equal("formatted", output)
+        assert_equal(["verified"], formatted_results.map(&:name))
+      end
+
       def test_measurement_calculates_summary_statistics
         measurement = Measurement.from([0.3, 0.1, 0.2])
 
