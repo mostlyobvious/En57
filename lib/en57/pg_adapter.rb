@@ -24,11 +24,13 @@ module En57
     def run_transaction(begin_statement)
       with_connection do |connection|
         connection.exec(begin_statement)
-        yield connection
+        begin
+          yield connection
+        rescue StandardError
+          connection.exec("ROLLBACK")
+          raise
+        end
         connection.exec("COMMIT")
-      rescue StandardError
-        connection.exec("ROLLBACK")
-        raise
       end
     end
 
