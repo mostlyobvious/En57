@@ -17,6 +17,7 @@ module En57
       :min,
       :max,
       :median,
+      :retry_count,
       :verified,
     )
 
@@ -33,6 +34,7 @@ module En57
           "Min",
           "Max",
           "Median",
+          "Retries",
         ]
         body =
           rows.map do |result|
@@ -44,6 +46,7 @@ module En57
               milliseconds(result.min),
               milliseconds(result.max),
               milliseconds(result.median),
+              result.retry_count.to_s,
             ]
           end
         widths = header.zip(*body).map { |values| values.map(&:length).max }
@@ -51,9 +54,9 @@ module En57
 
         [
           rule,
-          table_row(header, widths, %i[left left left left left left left]),
+          table_row(header, widths, %i[left left left left left left left left]),
           rule,
-          *body.map { table_row(it, widths, %i[left right right right right right right]) },
+          *body.map { table_row(it, widths, %i[left right right right right right right right]) },
           rule,
         ].join("\n")
       end
@@ -124,14 +127,17 @@ module En57
         @database_url = database_url
         @measure = measure
         @runs = runs
+        @retry_count = Concurrent::AtomicFixnum.new(0)
         @warmup_runs = warmup_runs
       end
 
       attr_reader :name, :runs
 
+      def retry_count = @retry_count.value
 
       def run
         warmup
+        reset_retry_count
         @runs.times { call }
         verify
       end
@@ -140,6 +146,8 @@ module En57
 
       def total_runs = @runs + @warmup_runs
       def call = nil
+      def record_retry = @retry_count.increment
+      def reset_retry_count = @retry_count.value = 0
       def verify = true
       def warmup = @warmup_runs.times { call }
 
@@ -228,6 +236,7 @@ module En57
                 min: measurement.min,
                 max: measurement.max,
                 median: measurement.median,
+                retry_count: scenario.retry_count,
                 verified:,
               )
             end
@@ -261,6 +270,7 @@ module En57
             begin
               @event_store.append(events)
             rescue AppendConditionViolated
+              record_retry
               retry
             end
           end
@@ -297,6 +307,7 @@ module En57
             begin
               @event_store.append(events, fail_if: scope.after(position = 0))
             rescue AppendConditionViolated
+              record_retry
               retry
             end
           end
@@ -334,6 +345,7 @@ module En57
             begin
               @event_store.append(events, fail_if: scope.after(position))
             rescue AppendConditionViolated
+              record_retry
               scope.each_with_position do |_event, event_position|
                 position = event_position
               end

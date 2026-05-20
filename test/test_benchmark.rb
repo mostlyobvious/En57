@@ -18,17 +18,18 @@ module En57
                 min: 0.001,
                 max: 0.002,
                 median: 0.0015,
+                retry_count: 12,
                 verified: true,
               ),
             ],
           )
 
         assert_equal(<<~TABLE.chomp, output)
-          +----------+------+--------------+---------+---------+---------+---------+
-          | Scenario | Runs | Mean latency | Stddev  | Min     | Max     | Median  |
-          +----------+------+--------------+---------+---------+---------+---------+
-          | scenario |   50 |      1.23 ms | 0.45 ms | 1.00 ms | 2.00 ms | 1.50 ms |
-          +----------+------+--------------+---------+---------+---------+---------+
+          +----------+------+--------------+---------+---------+---------+---------+---------+
+          | Scenario | Runs | Mean latency | Stddev  | Min     | Max     | Median  | Retries |
+          +----------+------+--------------+---------+---------+---------+---------+---------+
+          | scenario |   50 |      1.23 ms | 0.45 ms | 1.00 ms | 2.00 ms | 1.50 ms |      12 |
+          +----------+------+--------------+---------+---------+---------+---------+---------+
         TABLE
       end
 
@@ -45,6 +46,7 @@ module En57
                 min: 0.001,
                 max: 0.002,
                 median: 0.0015,
+                retry_count: 12,
                 verified: false,
               ),
             ],
@@ -144,6 +146,30 @@ module En57
         end
 
         assert_equal(0.3, formatted_results.fetch(0).mean)
+      end
+
+      def test_scenario_counts_retries_after_warmup
+        scenario =
+          Class
+            .new(Scenario) do
+              def initialize
+                super(
+                  name: "retrying",
+                  database_url: "postgres://example",
+                  measure: ->(&block) { block.call },
+                  runs: 2,
+                  warmup_runs: 1,
+                  concurrency: 1,
+                  batch_size: 1,
+                )
+              end
+
+              def call = record_retry
+            end
+            .new
+
+        assert_equal(true, scenario.run)
+        assert_equal(2, scenario.retry_count)
       end
 
       def test_measurement_calculates_summary_statistics
