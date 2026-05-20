@@ -117,7 +117,7 @@ module En57
     end
 
     class Runner
-      def self.classic
+      def self.classic(runs: 50)
         new(
           formatter: Table.new,
           scenarios: {
@@ -129,7 +129,7 @@ module En57
                 name: "Concurrent append, non-conflicting tags",
                 database_url:,
                 measure:,
-                runs: ENV.fetch("BENCHMARK_RUNS", 1),
+                runs:,
                 concurrency: 10,
                 batch_size: 100,
               )
@@ -139,7 +139,7 @@ module En57
                 name: "Concurrent append, no fail_if",
                 database_url:,
                 measure:,
-                runs: ENV.fetch("BENCHMARK_RUNS", 1),
+                runs:,
                 concurrency: 10,
                 batch_size: 100,
               )
@@ -149,7 +149,7 @@ module En57
                 name: "Concurrent append, conflicting tags",
                 database_url:,
                 measure:,
-                runs: ENV.fetch("BENCHMARK_RUNS", 1),
+                runs:,
                 concurrency: 10,
                 batch_size: 100,
               )
@@ -284,7 +284,9 @@ module En57
             begin
               @event_store.append(events, fail_if: scope.after(position))
             rescue AppendConditionViolated
-              scope.each_with_position { |_event, event_position| position = event_position }
+              scope.each_with_position do |_event, event_position|
+                position = event_position
+              end
               retry
             end
           end
