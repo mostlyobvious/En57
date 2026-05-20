@@ -17,7 +17,9 @@ Gem::Specification.new do |spec|
     "changelog_uri"
   ] = "https://github.com/mostlyobvious/en57/blob/main/CHANGELOG.md"
 
-  spec.files = Dir["lib/**/*", "db/schema/**/*.sql"]
+  spec.files =
+    Dir["lib/**/*", "db/schema/**/*.sql"] -
+      %w[bin/benchmark lib/en57/benchmark.rb]
   spec.require_paths = ["lib"]
   spec.extra_rdoc_files = %w[README.md]
 

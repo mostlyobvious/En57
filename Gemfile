@@ -4,6 +4,7 @@ source "https://rubygems.org"
 
 gemspec
 
+gem "benchmark"
 gem "bigdecimal"
 gem "irb"
 gem "rake"
