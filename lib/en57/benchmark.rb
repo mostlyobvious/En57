@@ -162,13 +162,7 @@ module En57
       def warmup = @warmup_runs.times { call }
 
       def concurrently(concurrency)
-        Array
-          .new(concurrency) do
-            Thread.new do
-              yield
-            end
-          end
-          .each(&:value)
+        Array.new(concurrency) { Thread.new { yield } }.each(&:value)
       end
     end
 
@@ -176,6 +170,7 @@ module En57
     require_relative "../benchmark/append_non_conflicting_tags"
     require_relative "../benchmark/concurrent_append_no_fail_if"
     require_relative "../benchmark/concurrent_append_non_conflicting_tags"
+    require_relative "../benchmark/concurrent_append_non_conflicting_tags_seeded"
     require_relative "../benchmark/concurrent_append_conflicting_tags"
 
     class Runner
@@ -238,6 +233,21 @@ module En57
           ) do
             ConcurrentAppendNonConflictingTags.new(
               name: "Concurrent append, non-conflicting tags",
+              database_url:,
+              measure:,
+              warmup_runs:,
+              runs:,
+              concurrency: 10,
+              batch_size: 100,
+            )
+          end,
+          "concurrent-append-non-conflicting-tags-seeded" => ->(
+            database_url,
+            warmup_runs,
+            measure
+          ) do
+            ConcurrentAppendNonConflictingTagsSeeded.new(
+              name: "Concurrent append, non-conflicting tags (seeded)",
               database_url:,
               measure:,
               warmup_runs:,

@@ -8,6 +8,14 @@ path = "db/schema/0.1.0.sql"
 type = "sql-file"
 path = "db/schema/0.1.0.sql"
 
+[instances.concurrent-append-non-conflicting-tags-seeded.seeds.schema]
+type = "sql-file"
+path = "db/schema/0.1.0.sql"
+
+[instances.concurrent-append-non-conflicting-tags-seeded.seeds.events]
+type = "sql-file"
+path = "db/seeds/concurrent_append_non_conflicting_tags_seeded.sql"
+
 [instances.append-no-fail-if.seeds.schema]
 type = "sql-file"
 path = "db/schema/0.1.0.sql"

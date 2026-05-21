@@ -340,6 +340,7 @@ module En57
             append-non-conflicting-tags
             concurrent-append-no-fail-if
             concurrent-append-non-conflicting-tags
+            concurrent-append-non-conflicting-tags-seeded
             concurrent-append-conflicting-tags
           ],
           Runner.names,
@@ -370,6 +371,13 @@ module En57
             "concurrent-append-non-conflicting-tags",
             ConcurrentAppendNonConflictingTags,
             "Concurrent append, non-conflicting tags",
+            50,
+            10,
+          ],
+          [
+            "concurrent-append-non-conflicting-tags-seeded",
+            ConcurrentAppendNonConflictingTagsSeeded,
+            "Concurrent append, non-conflicting tags (seeded)",
             50,
             10,
           ],
