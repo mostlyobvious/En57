@@ -7,6 +7,7 @@ requires:
 - active_record
 - connection_pool
 - en57
+- en57/benchmark
 integration:
   name: minitest
 matcher:
@@ -20,7 +21,10 @@ matcher:
     - En57::JsonSerializer#optional_big_decimal_type
     - En57::Migrator*
     - En57::Repository#initialize
-    # `run_transaction({})` vs `run_transaction(nil)` is an equivalent mutant:
-    # `**{}` and `**nil` both splat to no keyword arguments.
     - En57::ActiveRecordAdapter#with_transaction
     - En57::SequelAdapter#with_transaction
+    - En57::Benchmark::AppendNoFailIf*
+    - En57::Benchmark::AppendNonConflictingTags*
+    - En57::Benchmark::ConcurrentAppendConflictingTags*
+    - En57::Benchmark::ConcurrentAppendNoFailIf*
+    - En57::Benchmark::ConcurrentAppendNonConflictingTags*
