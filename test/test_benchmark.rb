@@ -352,39 +352,45 @@ module En57
         scenarios = Runner.classic.instance_variable_get(:@scenarios)
 
         [
-          ["append-no-fail-if", AppendNoFailIf, "Append, no fail_if", 500, 1],
+          [
+            "append-no-fail-if",
+            AppendNoFailIf,
+            "1x100 append, no fail_if",
+            500,
+            1,
+          ],
           [
             "append-non-conflicting-tags",
             AppendNonConflictingTags,
-            "Append, non-conflicting tags",
+            "1x100 append, non-conflicting tags",
             500,
             1,
           ],
           [
             "concurrent-append-no-fail-if",
             ConcurrentAppendNoFailIf,
-            "Concurrent append, no fail_if",
+            "10x100 concurrent append, no fail_if",
             50,
             10,
           ],
           [
             "concurrent-append-non-conflicting-tags",
             ConcurrentAppendNonConflictingTags,
-            "Concurrent append, non-conflicting tags",
+            "10x100 concurrent append, non-conflicting tags",
             50,
             10,
           ],
           [
             "concurrent-append-non-conflicting-tags-seeded",
             ConcurrentAppendNonConflictingTagsSeeded,
-            "Concurrent append, non-conflicting tags (seeded)",
+            "10x100 concurrent append, non-conflicting tags (seeded)",
             50,
             10,
           ],
           [
             "concurrent-append-conflicting-tags",
             ConcurrentAppendConflictingTags,
-            "Concurrent append, conflicting tags",
+            "10x100 concurrent append, conflicting tags",
             50,
             10,
           ],

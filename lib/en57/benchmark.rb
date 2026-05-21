@@ -187,7 +187,7 @@ module En57
         {
           "append-no-fail-if" => ->(database_url, warmup_runs, measure) do
             AppendNoFailIf.new(
-              name: "Append, no fail_if",
+              name: "1x100 append, no fail_if",
               database_url:,
               measure:,
               warmup_runs:,
@@ -202,7 +202,7 @@ module En57
             measure
           ) do
             AppendNonConflictingTags.new(
-              name: "Append, non-conflicting tags",
+              name: "1x100 append, non-conflicting tags",
               database_url:,
               measure:,
               warmup_runs:,
@@ -217,7 +217,7 @@ module En57
             measure
           ) do
             ConcurrentAppendNoFailIf.new(
-              name: "Concurrent append, no fail_if",
+              name: "10x100 concurrent append, no fail_if",
               database_url:,
               measure:,
               warmup_runs:,
@@ -232,7 +232,7 @@ module En57
             measure
           ) do
             ConcurrentAppendNonConflictingTags.new(
-              name: "Concurrent append, non-conflicting tags",
+              name: "10x100 concurrent append, non-conflicting tags",
               database_url:,
               measure:,
               warmup_runs:,
@@ -247,7 +247,7 @@ module En57
             measure
           ) do
             ConcurrentAppendNonConflictingTagsSeeded.new(
-              name: "Concurrent append, non-conflicting tags (seeded)",
+              name: "10x100 concurrent append, non-conflicting tags (seeded)",
               database_url:,
               measure:,
               warmup_runs:,
@@ -262,7 +262,7 @@ module En57
             measure
           ) do
             ConcurrentAppendConflictingTags.new(
-              name: "Concurrent append, conflicting tags",
+              name: "10x100 concurrent append, conflicting tags",
               database_url:,
               measure:,
               warmup_runs:,
