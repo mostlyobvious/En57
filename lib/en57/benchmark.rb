@@ -172,6 +172,9 @@ module En57
     require_relative "../benchmark/concurrent_append_non_conflicting_tags"
     require_relative "../benchmark/concurrent_append_non_conflicting_tags_seeded"
     require_relative "../benchmark/concurrent_append_conflicting_tags"
+    require_relative "../benchmark/res_append_stream_any"
+    require_relative "../benchmark/res_concurrent_append_non_conflicting_streams"
+    require_relative "../benchmark/res_concurrent_append_conflicting_streams"
 
     class Runner
       def self.classic(runs: 50, names: nil)
@@ -263,6 +266,47 @@ module En57
           ) do
             ConcurrentAppendConflictingTags.new(
               name: "10x100 concurrent append, conflicting tags",
+              database_url:,
+              measure:,
+              warmup_runs:,
+              runs:,
+              concurrency: 10,
+              batch_size: 100,
+            )
+          end,
+          "res-append-stream-any" => ->(database_url, warmup_runs, measure) do
+            ResAppendStreamAny.new(
+              name: "1x100 append, expected_version :any (RES)",
+              database_url:,
+              measure:,
+              warmup_runs:,
+              runs: runs * 10,
+              concurrency: 1,
+              batch_size: 100,
+            )
+          end,
+          "res-concurrent-append-non-conflicting-streams" => ->(
+            database_url,
+            warmup_runs,
+            measure
+          ) do
+            ResConcurrentAppendNonConflictingStreams.new(
+              name: "10x100 concurrent append, non-conflicting streams (RES)",
+              database_url:,
+              measure:,
+              warmup_runs:,
+              runs:,
+              concurrency: 10,
+              batch_size: 100,
+            )
+          end,
+          "res-concurrent-append-conflicting-streams" => ->(
+            database_url,
+            warmup_runs,
+            measure
+          ) do
+            ResConcurrentAppendConflictingStreams.new(
+              name: "10x100 concurrent append, conflicting streams (RES)",
               database_url:,
               measure:,
               warmup_runs:,

@@ -342,6 +342,9 @@ module En57
             concurrent-append-non-conflicting-tags
             concurrent-append-non-conflicting-tags-seeded
             concurrent-append-conflicting-tags
+            res-append-stream-any
+            res-concurrent-append-non-conflicting-streams
+            res-concurrent-append-conflicting-streams
           ],
           Runner.names,
         )

@@ -31,3 +31,16 @@ path = "db/schema/0.1.0.sql"
 [instances.concurrent-append-conflicting-tags.seeds.schema]
 type = "sql-file"
 path = "db/schema/0.1.0.sql"
+
+[instances.res-append-stream-any.seeds.schema]
+type = "sql-file"
+path = "db/seeds/res.sql"
+
+[instances.res-concurrent-append-non-conflicting-streams.seeds.schema]
+type = "sql-file"
+path = "db/seeds/res.sql"
+
+[instances.res-concurrent-append-conflicting-streams.seeds.schema]
+type = "sql-file"
+path = "db/seeds/res.sql"
+
