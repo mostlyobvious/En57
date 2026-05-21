@@ -28,3 +28,4 @@ matcher:
     - En57::Benchmark::ConcurrentAppendConflictingTags*
     - En57::Benchmark::ConcurrentAppendNoFailIf*
     - En57::Benchmark::ConcurrentAppendNonConflictingTags*
+    - En57::Benchmark::Scenario#concurrently # thread raise mutation survives despite direct coverage

@@ -55,17 +55,13 @@ module En57
 
         [
           rule,
-          table_row(
-            header,
-            widths,
-            %i[left left left left left left left left],
-          ),
+          table_row(header, widths, []),
           rule,
-          *body.map do
+          body.map do
             table_row(
               it,
               widths,
-              %i[left right right right right right right right],
+              [nil, true, true, true, true, true, true, true],
             )
           end,
           rule,
@@ -79,7 +75,7 @@ module En57
           values
             .zip(widths, alignments)
             .map do |value, width, alignment|
-              alignment == :right ? value.rjust(width) : value.ljust(width)
+              alignment ? value.rjust(width) : value.ljust(width)
             end
 
         "| #{cells.join(" | ")} |"
@@ -103,11 +99,11 @@ module En57
           max: sorted_samples.last,
           median:
             if samples.size.odd?
-              sorted_samples[samples.size / 2]
+              sorted_samples.fetch(samples.size / 2)
             else
               (
-                sorted_samples[(samples.size / 2) - 1] +
-                  sorted_samples[samples.size / 2]
+                sorted_samples.fetch((samples.size / 2) - 1) +
+                  sorted_samples.fetch(samples.size / 2)
               ).fdiv(2)
             end,
         )
@@ -140,7 +136,7 @@ module En57
         @database_url = database_url
         @measure = measure
         @runs = runs
-        @retry_count = Concurrent::AtomicFixnum.new(0)
+        @retry_count = Concurrent::AtomicFixnum.new
         @warmup_runs = warmup_runs
       end
 
@@ -158,7 +154,8 @@ module En57
       private
 
       def total_runs = @runs + @warmup_runs
-      def call = nil
+      def call
+      end
       def record_retry = @retry_count.increment
       def reset_retry_count = @retry_count.value = 0
       def verify = true
@@ -168,11 +165,10 @@ module En57
         Array
           .new(concurrency) do
             Thread.new do
-              Thread.report_on_exception = false
               yield
             end
           end
-          .each(&:join)
+          .each(&:value)
       end
     end
 
@@ -190,7 +186,7 @@ module En57
         new(formatter: Table.new, scenarios: selected_scenarios)
       end
 
-      def self.names = scenarios(runs: 1).keys
+      def self.names = scenarios(runs: nil).keys
 
       def self.scenarios(runs:)
         {
@@ -306,18 +302,12 @@ module En57
     end
 
     class CLI
-      def initialize(
-        argv,
-        out: $stdout,
-        err: $stderr,
-        runner: Runner,
-        runs: Integer(ENV.fetch("BENCHMARK_RUNS", 10))
-      )
+      def initialize(argv, out: nil, err: nil, runs: nil)
         @argv = argv
-        @err = err
-        @out = out
-        @runner = runner
-        @runs = runs
+        @err = err || $stderr
+        @out = out || $stdout
+        @runner = Runner
+        @runs = runs || Integer(ENV.fetch("BENCHMARK_RUNS", 10))
       end
 
       def run
