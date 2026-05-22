@@ -1,13 +1,13 @@
 usage: opensource
 includes:
-- lib
-- test
+  - lib
+  - test
 requires:
-- sequel
-- active_record
-- connection_pool
-- en57
-- en57/benchmark
+  - sequel
+  - active_record
+  - connection_pool
+  - en57
+  - en57/benchmark
 integration:
   name: minitest
 matcher:
@@ -29,4 +29,7 @@ matcher:
     - En57::Benchmark::ConcurrentAppendNoFailIf*
     - En57::Benchmark::ConcurrentAppendNonConflictingTags*
     - En57::Benchmark::ConcurrentAppendNonConflictingTagsSeeded*
+    - En57::Benchmark::ResAppendStreamAny*
+    - En57::Benchmark::ResConcurrentAppendConflictingStreams*
+    - En57::Benchmark::ResConcurrentAppendNonConflictingStreams*
     - En57::Benchmark::Scenario#concurrently # thread raise mutation survives despite direct coverage
