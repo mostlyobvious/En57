@@ -8,9 +8,9 @@ module En57
       concurrency 10
       batch_size 100
 
-      setup do
+      setup do |database_url|
         @event_store =
-          EventStore.for_pooled_pg(@database_url, max_connections: @concurrency)
+          EventStore.for_pooled_pg(database_url, max_connections: @concurrency)
       end
 
       call do |measure|

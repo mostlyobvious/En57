@@ -291,6 +291,29 @@ module En57
         Scenario.definitions.replace(original_definitions)
       end
 
+      def test_scenario_define_yields_database_url_to_setup
+        original_definitions = Scenario.definitions.dup
+        scenario_class =
+          Scenario.define do
+            database_instance "setup-database-url"
+            name "Setup database URL"
+            setup { |database_url| @setup_database_url = database_url }
+          end
+        scenario =
+          scenario_class.build(
+            database_url: "postgres://example",
+            warmup_runs: 0,
+            runs: 1,
+          )
+
+        assert_equal(
+          "postgres://example",
+          scenario.instance_variable_get(:@setup_database_url),
+        )
+      ensure
+        Scenario.definitions.replace(original_definitions)
+      end
+
       def test_scenario_define_uses_verify_block
         original_definitions = Scenario.definitions.dup
         scenario_class =

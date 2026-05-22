@@ -11,8 +11,8 @@ module En57
       concurrency 10
       batch_size 100
 
-      setup do
-        ActiveRecord::Base.establish_connection(@database_url)
+      setup do |database_url|
+        ActiveRecord::Base.establish_connection(database_url)
         @event_store = RailsEventStore::JSONClient.new
       end
 

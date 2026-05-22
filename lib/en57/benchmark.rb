@@ -137,7 +137,7 @@ module En57
         @runs = ->(runs) { runs }
         @concurrency = 1
         @batch_size = 100
-        @setup = -> {}
+        @setup = ->(_database_url) {}
         @call_block = ->(_measure) {}
         @verify = -> { true }
       end
@@ -194,7 +194,7 @@ module En57
 
             define_method(:initialize) do |**kwargs|
               super(**kwargs)
-              instance_exec(&definition.setup)
+              instance_exec(@database_url, &definition.setup)
             end
 
             define_method(:call) do |measure|
