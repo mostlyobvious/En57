@@ -4,6 +4,7 @@ require "benchmark"
 require "concurrent-ruby"
 require "connection_pool"
 require "pg_ephemeral"
+require "securerandom"
 
 require_relative "../en57"
 
@@ -135,7 +136,7 @@ module En57
         @concurrency = 1
         @batch_size = 100
         @setup = ->(_database_url) {}
-        @call_block = ->(_measure) {}
+        @call_block = ->(_measure, _run_id) {}
       end
 
       def database_instance(value) = @database_instance = value
@@ -191,8 +192,8 @@ module En57
               instance_exec(@database_url, &definition.setup)
             end
 
-            define_method(:call) do |measure|
-              instance_exec(measure, &definition.call_block)
+            define_method(:call) do |measure, run_id|
+              instance_exec(measure, run_id, &definition.call_block)
             end
           end
           .tap { definitions << it }
@@ -224,21 +225,27 @@ module En57
       def run(measure)
         warmup
         reset_retry_count
-        @runs.times { call(measure) }
-        nil
+        @runs.times { call(measure, SecureRandom.hex(4)) }
       end
 
       private
 
       def total_runs = @runs + @warmup_runs
-      def call(_measure) = true
+      def call(_measure, _run_id)
+      end
       def record_retry = @retry_count.increment
       def reset_retry_count = @retry_count.value = 0
-      def warmup = @warmup_runs.times { call(NOOP_MEASURE) }
+      def warmup
+        @warmup_runs.times { call(NOOP_MEASURE, SecureRandom.hex(4)) }
+      end
 
       def concurrently
         barrier = Concurrent::CyclicBarrier.new(@concurrency)
-        Array.new(@concurrency) { Thread.new { yield barrier } }.each(&:value)
+        Array
+          .new(@concurrency) do
+            Thread.new { yield SecureRandom.hex(4), barrier }
+          end
+          .each(&:value)
       end
     end
 

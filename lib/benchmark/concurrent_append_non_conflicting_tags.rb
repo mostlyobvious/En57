@@ -13,10 +13,10 @@ module En57
           EventStore.for_pooled_pg(database_url, max_connections: @concurrency)
       end
 
-      call do |measure|
+      call do |measure, _run_id|
         type = "event_benchmarked"
-        concurrently do |barrier|
-          tags = %W[writer:#{SecureRandom.hex(4)}]
+        concurrently do |writer_id, barrier|
+          tags = %W[writer:#{writer_id}]
           scope = @event_store.read.of_type(type).with_tag(tags)
           events = Array.new(@batch_size) { Event.new(type: type, tags: tags) }
 

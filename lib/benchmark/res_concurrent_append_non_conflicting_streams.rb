@@ -16,10 +16,10 @@ module En57
         @event_store = RailsEventStore::JSONClient.new
       end
 
-      call do |measure|
+      call do |measure, _run_id|
         type = "event_benchmarked"
-        concurrently do |barrier|
-          tag = "writer:#{SecureRandom.hex(4)}"
+        concurrently do |writer_id, barrier|
+          tag = "writer:#{writer_id}"
           @event_store.read.stream(tag).of_type(type)
           events =
             Array.new(@batch_size) do

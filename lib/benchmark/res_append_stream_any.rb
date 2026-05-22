@@ -17,9 +17,9 @@ module En57
         @event_store = RailsEventStore::JSONClient.new
       end
 
-      call do |measure|
+      call do |measure, run_id|
         type = "event_benchmarked"
-        tag = "writer:#{SecureRandom.hex(4)}"
+        tag = "writer:#{run_id}"
         events =
           Array.new(@batch_size) do
             RubyEventStore::Event.new(metadata: { event_type: type })

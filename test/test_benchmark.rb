@@ -73,6 +73,10 @@ module En57
         )
       end
 
+      def test_table_formats_empty_results
+        assert_equal("", Table.new.format([]))
+      end
+
       def test_runner_formats_results
         formatter = Object.new
         formatted_results = nil
@@ -186,7 +190,7 @@ module En57
               )
             end
 
-            def call(measure)
+            def call(measure, _run_id)
               @call_count += 1
               measure.call { nil }
               true
@@ -382,6 +386,61 @@ module En57
         scenario.run(->(&block) { block.call })
       end
 
+      def test_scenario_define_yields_run_id_to_call
+        original_definitions = Scenario.definitions.dup
+        run_ids = []
+        scenario_class =
+          Scenario.define do
+            database_instance "defined-run-id"
+            name "Defined run ID"
+            call { |_measure, run_id| run_ids << run_id }
+          end
+        scenario =
+          scenario_class.build(
+            database_url: "postgres://example",
+            warmup_runs: 1,
+            runs: 2,
+          )
+
+        scenario.run(->(&block) { block.call })
+
+        assert_equal(3, run_ids.size)
+        assert_equal(3, run_ids.uniq.size)
+        run_ids.each { |run_id| assert_match(/\A\h{8}\z/, run_id) }
+      ensure
+        Scenario.definitions.replace(original_definitions)
+      end
+
+      def test_scenario_yields_run_id_to_call
+        run_ids = []
+        scenario =
+          Class
+            .new(Scenario) do
+              def initialize(run_ids)
+                @run_ids = run_ids
+                super(
+                  name: "run-id",
+                  database_url: "postgres://example",
+                  runs: 2,
+                  warmup_runs: 1,
+                  concurrency: 1,
+                  batch_size: 1,
+                )
+              end
+
+              def call(_measure, run_id)
+                @run_ids << run_id
+              end
+            end
+            .new(run_ids)
+
+        scenario.run(->(&block) { block.call })
+
+        assert_equal(3, run_ids.size)
+        assert_equal(3, run_ids.uniq.size)
+        run_ids.each { |run_id| assert_match(/\A\h{8}\z/, run_id) }
+      end
+
       def test_scenario_counts_retries_after_warmup
         scenario =
           Class
@@ -397,7 +456,7 @@ module En57
                 )
               end
 
-              def call(_measure)
+              def call(_measure, _run_id)
                 record_retry
                 true
               end
@@ -412,12 +471,14 @@ module En57
       def test_scenario_runs_blocks_concurrently
         calls = Concurrent::AtomicFixnum.new(0)
         barriers = Queue.new
+        writer_ids = Queue.new
         scenario =
           Class
             .new(Scenario) do
-              def initialize(calls, barriers)
+              def initialize(calls, barriers, writer_ids)
                 @barriers = barriers
                 @calls = calls
+                @writer_ids = writer_ids
                 super(
                   name: "concurrent",
                   database_url: "postgres://example",
@@ -428,20 +489,27 @@ module En57
                 )
               end
 
-              def call(_measure)
-                concurrently do |barrier|
+              def call(_measure, _run_id)
+                concurrently do |writer_id, barrier|
                   @barriers << barrier
+                  @writer_ids << writer_id
                   barrier.wait
                   @calls.increment
                 end
               end
             end
-            .new(calls, barriers)
+            .new(calls, barriers, writer_ids)
 
         scenario.run(->(&block) { block.call })
 
         assert_equal(2, calls.value)
         assert_equal(1, 2.times.map { barriers.pop }.uniq.size)
+
+        received_writer_ids = 2.times.map { writer_ids.pop }
+        assert_equal(2, received_writer_ids.uniq.size)
+        received_writer_ids.each do |writer_id|
+          assert_match(/\A\h{8}\z/, writer_id)
+        end
       end
 
       def test_runner_discovers_scenarios_by_database_instance
