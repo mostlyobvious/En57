@@ -119,85 +119,63 @@ module En57
       end
     end
 
-    ScenarioDefinition =
-      Data.define(
-        :database_instance,
-        :name,
-        :runs,
-        :concurrency,
-        :batch_size,
-        :setup,
-        :call_block,
-      )
-
-    class ScenarioDSL
-      def initialize
-        @runs = ->(runs) { runs }
-        @concurrency = 1
-        @batch_size = 100
-        @setup = ->(_database_url) {}
-        @call_block = ->(_measure, _run_id) {}
-      end
-
-      def database_instance(value) = @database_instance = value
-      def name(value) = @name = value
-
-      def runs(&block) = @runs = block
-      def concurrency(value) = @concurrency = value
-      def batch_size(value) = @batch_size = value
-      def setup(&block) = @setup = block
-      def call(&block) = @call_block = block
-
-      def definition
-        ScenarioDefinition.new(
-          database_instance: @database_instance,
-          name: @name,
-          runs: @runs,
-          concurrency: @concurrency,
-          batch_size: @batch_size,
-          setup: @setup,
-          call_block: @call_block,
-        )
-      end
-    end
-
     class Scenario
+      Configuration =
+        Data.define(:database_instance, :name, :concurrency, :batch_size, :runs)
+
       @definitions = []
 
       def self.definitions = @definitions
 
-      def self.define(&block)
-        definition = ScenarioDSL.new.tap { it.instance_eval(&block) }.definition
+      def self.define(
+        database_instance:,
+        name:,
+        concurrency: 1,
+        batch_size: 100,
+        runs: ->(runs) { runs },
+        &block
+      )
+        register(
+          Configuration.new(
+            database_instance:,
+            name:,
+            concurrency:,
+            batch_size:,
+            runs:,
+          ),
+          &block
+        )
+      end
+
+      def self.with(**overrides) = register(configuration.with(**overrides))
+
+      def self.register(configuration, &block)
         Class
           .new(self) do
+            define_singleton_method(:configuration) { configuration }
+
             define_singleton_method(:database_instance) do
-              definition.database_instance
+              configuration.database_instance
             end
 
             define_singleton_method(
               :build,
             ) do |database_url:, warmup_runs:, runs:|
               new(
-                name: definition.name,
+                name: configuration.name,
                 database_url:,
-                runs: definition.runs.call(runs),
+                runs: configuration.runs.call(runs),
                 warmup_runs:,
-                concurrency: definition.concurrency,
-                batch_size: definition.batch_size,
+                concurrency: configuration.concurrency,
+                batch_size: configuration.batch_size,
               )
             end
 
-            define_method(:initialize) do |**kwargs|
-              super(**kwargs)
-              instance_exec(@database_url, &definition.setup)
-            end
-
-            define_method(:call) do |measure, run_id|
-              instance_exec(measure, run_id, &definition.call_block)
-            end
+            class_eval(&block) if block
           end
-          .tap { definitions << it }
+          .tap { Scenario.definitions << it }
       end
+      private_class_method :register
 
       def initialize(
         name:,
@@ -214,6 +192,7 @@ module En57
         @runs = runs
         @retry_count = Concurrent::AtomicFixnum.new
         @warmup_runs = warmup_runs
+        setup(database_url)
       end
 
       attr_reader :name, :runs
@@ -231,6 +210,8 @@ module En57
       private
 
       def total_runs = @runs + @warmup_runs
+      def setup(_database_url)
+      end
       def call(_measure, _run_id)
       end
       def record_retry = @retry_count.increment

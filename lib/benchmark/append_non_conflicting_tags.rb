@@ -2,19 +2,19 @@
 
 module En57
   module Benchmark
-    Scenario.define do
-      database_instance "append-non-conflicting-tags"
-      name "1x100 append, non-conflicting tags"
-      runs { it * 10 }
-      concurrency 1
-      batch_size 100
-
-      setup do |database_url|
+    Scenario.define(
+      database_instance: "append-non-conflicting-tags",
+      name: "1x100 append, non-conflicting tags",
+      runs: ->(runs) { runs * 10 },
+      concurrency: 1,
+      batch_size: 100,
+    ) do
+      def setup(database_url)
         @event_store =
           EventStore.for_pooled_pg(database_url, max_connections: @concurrency)
       end
 
-      call do |measure, run_id|
+      def call(measure, run_id)
         scope =
           @event_store
             .read

@@ -2,13 +2,13 @@
 
 module En57
   module Benchmark
-    Scenario.define do
-      database_instance "res-concurrent-append-non-conflicting-streams"
-      name "10x100 concurrent append, non-conflicting streams (RES)"
-      concurrency 10
-      batch_size 100
-
-      setup do |database_url|
+    Scenario.define(
+      database_instance: "res-concurrent-append-non-conflicting-streams",
+      name: "10x100 concurrent append, non-conflicting streams (RES)",
+      concurrency: 10,
+      batch_size: 100,
+    ) do
+      def setup(database_url)
         require "active_record"
         require "rails_event_store"
 
@@ -16,7 +16,7 @@ module En57
         @event_store = RailsEventStore::JSONClient.new
       end
 
-      call do |measure, _run_id|
+      def call(measure, _run_id)
         concurrently do |writer_id, barrier|
           events =
             @batch_size.times.map do

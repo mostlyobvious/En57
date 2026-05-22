@@ -233,15 +233,18 @@ module En57
       def test_scenario_define_registers_configured_scenario
         original_definitions = Scenario.definitions.dup
         scenario_class =
-          Scenario.define do
-            database_instance "defined"
-            name "Defined scenario"
-            runs { it * 2 }
-            concurrency 2
-            batch_size 3
+          Scenario.define(
+            database_instance: "defined",
+            name: "Defined scenario",
+            runs: ->(runs) { runs * 2 },
+            concurrency: 2,
+            batch_size: 3,
+          ) do
+            def setup(_database_url)
+              @setup_called = true
+            end
 
-            setup { @setup_called = true }
-            call do |measure|
+            def call(measure, _run_id)
               measure.call { @call_measured = true }
               nil
             end
@@ -273,10 +276,13 @@ module En57
       def test_scenario_define_yields_database_url_to_setup
         original_definitions = Scenario.definitions.dup
         scenario_class =
-          Scenario.define do
-            database_instance "setup-database-url"
-            name "Setup database URL"
-            setup { |database_url| @setup_database_url = database_url }
+          Scenario.define(
+            database_instance: "setup-database-url",
+            name: "Setup database URL",
+          ) do
+            def setup(database_url)
+              @setup_database_url = database_url
+            end
           end
         scenario =
           scenario_class.build(
@@ -296,10 +302,10 @@ module En57
       def test_scenario_define_defaults
         original_definitions = Scenario.definitions.dup
         scenario_class =
-          Scenario.define do
-            database_instance "defaulted"
-            name "Defaulted scenario"
-          end
+          Scenario.define(
+            database_instance: "defaulted",
+            name: "Defaulted scenario",
+          )
         scenario =
           scenario_class.build(
             database_url: "postgres://example",
@@ -311,6 +317,50 @@ module En57
         assert_equal(1, scenario.instance_variable_get(:@concurrency))
         assert_equal(100, scenario.instance_variable_get(:@batch_size))
         scenario.run(->(&block) { block.call })
+      ensure
+        Scenario.definitions.replace(original_definitions)
+      end
+
+      def test_scenario_with_registers_a_copy_with_overridden_configuration
+        original_definitions = Scenario.definitions.dup
+        scenario_class =
+          Scenario.define(
+            database_instance: "original",
+            name: "Original scenario",
+            concurrency: 2,
+            batch_size: 5,
+          ) do
+            def setup(database_url)
+              @setup_database_url = database_url
+            end
+
+            def call(measure, _run_id)
+              measure.call { @called = true }
+            end
+          end
+
+        copy = scenario_class.with(database_instance: "copy", name: "Copy")
+        scenario =
+          copy.build(
+            database_url: "postgres://example",
+            warmup_runs: 0,
+            runs: 1,
+          )
+
+        assert_includes(Scenario.definitions, copy)
+        refute_same(scenario_class, copy)
+        assert_equal("original", scenario_class.database_instance)
+        assert_equal("copy", copy.database_instance)
+        assert_equal("Copy", scenario.name)
+        assert_equal(2, scenario.instance_variable_get(:@concurrency))
+        assert_equal(5, scenario.instance_variable_get(:@batch_size))
+        assert_equal(
+          "postgres://example",
+          scenario.instance_variable_get(:@setup_database_url),
+        )
+        scenario.run(->(&block) { block.call })
+
+        assert_equal(true, scenario.instance_variable_get(:@called))
       ensure
         Scenario.definitions.replace(original_definitions)
       end
@@ -390,11 +440,10 @@ module En57
         original_definitions = Scenario.definitions.dup
         run_ids = []
         scenario_class =
-          Scenario.define do
-            database_instance "defined-run-id"
-            name "Defined run ID"
-            call { |_measure, run_id| run_ids << run_id }
-          end
+          Scenario.define(
+            database_instance: "defined-run-id",
+            name: "Defined run ID",
+          ) { define_method(:call) { |_measure, run_id| run_ids << run_id } }
         scenario =
           scenario_class.build(
             database_url: "postgres://example",

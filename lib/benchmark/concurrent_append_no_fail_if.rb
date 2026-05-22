@@ -2,18 +2,18 @@
 
 module En57
   module Benchmark
-    Scenario.define do
-      database_instance "concurrent-append-no-fail-if"
-      name "10x100 concurrent append, no fail_if"
-      concurrency 10
-      batch_size 100
-
-      setup do |database_url|
+    Scenario.define(
+      database_instance: "concurrent-append-no-fail-if",
+      name: "10x100 concurrent append, no fail_if",
+      concurrency: 10,
+      batch_size: 100,
+    ) do
+      def setup(database_url)
         @event_store =
           EventStore.for_pooled_pg(database_url, max_connections: @concurrency)
       end
 
-      call do |measure, _run_id|
+      def call(measure, _run_id)
         concurrently do |writer_id, barrier|
           events =
             @batch_size.times.map do
