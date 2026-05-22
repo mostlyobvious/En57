@@ -251,6 +251,26 @@ module En57
         assert_in_delta(0.15, formatted_results.fetch(0).median)
       end
 
+      def test_scenario_stores_configuration
+        scenario =
+          Scenario.new(
+            name: "configured",
+            database_url: "postgres://example",
+            runs: 1,
+            warmup_runs: 1,
+            concurrency: 2,
+            batch_size: 3,
+          )
+
+        assert_equal("configured", scenario.name)
+        assert_equal(
+          "postgres://example",
+          scenario.instance_variable_get(:@database_url),
+        )
+        assert_equal(2, scenario.instance_variable_get(:@concurrency))
+        assert_equal(3, scenario.instance_variable_get(:@batch_size))
+      end
+
       def test_scenario_calculates_total_runs
         scenario =
           Class
@@ -356,113 +376,91 @@ module En57
         assert_equal(2, calls.value)
       end
 
-      def test_classic_runner_lists_benchmark_names
-        assert_equal(
-          %w[
-            append-no-fail-if
-            append-non-conflicting-tags
-            concurrent-append-no-fail-if
-            concurrent-append-non-conflicting-tags
-            concurrent-append-non-conflicting-tags-seeded
-            concurrent-append-conflicting-tags
-            res-append-stream-any
-            res-concurrent-append-non-conflicting-streams
-            res-concurrent-append-conflicting-streams
-          ],
-          Runner.names,
-        )
-      end
+      def test_runner_discovers_scenario_classes
+        first_scenario_class =
+          Class.new do
+            def self.key = "a-discovered"
 
-      def test_runner_orders_scenario_classes
-        assert_equal(
-          [
-            AppendNoFailIf,
-            AppendNonConflictingTags,
-            ConcurrentAppendNoFailIf,
-            ConcurrentAppendNonConflictingTags,
-            ConcurrentAppendNonConflictingTagsSeeded,
-            ConcurrentAppendConflictingTags,
-            ResAppendStreamAny,
-            ResConcurrentAppendNonConflictingStreams,
-            ResConcurrentAppendConflictingStreams,
-          ],
-          Runner::SCENARIO_CLASSES,
-        )
-      end
+            def self.build(database_url:, warmup_runs:, runs:)
+              [database_url, warmup_runs, runs]
+            end
+          end
+        second_scenario_class =
+          Class.new do
+            def self.key = "b-discovered"
 
-      def test_classic_runner_builds_scenarios
-        scenarios = Runner.classic.instance_variable_get(:@scenarios)
+            def self.build(database_url:, warmup_runs:, runs:)
+              [database_url, warmup_runs, runs]
+            end
+          end
+        incomplete_scenario_class = Class.new { def self.key = "ignored" }
+        anonymous_scenario_class = Class.new { def self.build(...) = nil }
 
-        [
+        Scenario.stub(
+          :subclasses,
           [
-            "append-no-fail-if",
-            AppendNoFailIf,
-            "1x100 append, no fail_if",
-            500,
-            1,
+            second_scenario_class,
+            incomplete_scenario_class,
+            anonymous_scenario_class,
+            first_scenario_class,
           ],
-          [
-            "append-non-conflicting-tags",
-            AppendNonConflictingTags,
-            "1x100 append, non-conflicting tags",
-            500,
-            1,
-          ],
-          [
-            "concurrent-append-no-fail-if",
-            ConcurrentAppendNoFailIf,
-            "10x100 concurrent append, no fail_if",
-            50,
-            10,
-          ],
-          [
-            "concurrent-append-non-conflicting-tags",
-            ConcurrentAppendNonConflictingTags,
-            "10x100 concurrent append, non-conflicting tags",
-            50,
-            10,
-          ],
-          [
-            "concurrent-append-non-conflicting-tags-seeded",
-            ConcurrentAppendNonConflictingTagsSeeded,
-            "10x100 concurrent append, non-conflicting tags (seeded)",
-            50,
-            10,
-          ],
-          [
-            "concurrent-append-conflicting-tags",
-            ConcurrentAppendConflictingTags,
-            "10x100 concurrent append, conflicting tags",
-            50,
-            10,
-          ],
-        ].each do |key, scenario_class, name, runs, concurrency|
-          scenario = scenarios.fetch(key).call("postgres://example", 2)
-
-          assert_equal(key, scenario_class.key)
-          assert_instance_of(scenario_class, scenario)
-          assert_equal(name, scenario.name)
+        ) do
+          assert_equal(%w[a-discovered b-discovered], Runner.names)
           assert_equal(
-            "postgres://example",
-            scenario.instance_variable_get(:@database_url),
+            ["postgres://example", 2, 3],
+            Runner
+              .scenarios(runs: 3)
+              .fetch("a-discovered")
+              .call("postgres://example", 2),
           )
-          assert_equal(2, scenario.instance_variable_get(:@warmup_runs))
-          assert_equal(
-            concurrency,
-            scenario.instance_variable_get(:@concurrency),
-          )
-          assert_equal(100, scenario.instance_variable_get(:@batch_size))
-          assert_equal(runs, scenario.runs)
         end
       end
 
       def test_classic_runner_selects_named_scenarios
-        runner = Runner.classic(names: ["append-no-fail-if"])
+        first_scenario_class =
+          Class.new do
+            def self.key = "first"
+            def self.build(...) = nil
+          end
+        second_scenario_class =
+          Class.new do
+            def self.key = "second"
+            def self.build(...) = nil
+          end
 
-        assert_equal(
-          ["append-no-fail-if"],
-          runner.instance_variable_get(:@scenarios).keys,
-        )
+        Scenario.stub(
+          :subclasses,
+          [first_scenario_class, second_scenario_class],
+        ) do
+          runner = Runner.classic(names: ["first"])
+
+          assert_equal(
+            ["first"],
+            runner.instance_variable_get(:@scenarios).keys,
+          )
+        end
+      end
+
+      def test_classic_runner_defaults_to_fifty_runs
+        scenario_class =
+          Class.new do
+            def self.key = "scenario"
+
+            def self.build(database_url:, warmup_runs:, runs:)
+              [database_url, warmup_runs, runs]
+            end
+          end
+
+        Scenario.stub(:subclasses, [scenario_class]) do
+          scenario =
+            Runner
+              .classic
+              .instance_variable_get(:@scenarios)
+              .fetch("scenario")
+              .call("postgres://example", 2)
+
+          assert_equal(["postgres://example", 2, 50], scenario)
+        end
       end
 
       def test_classic_runner_uses_table_formatter

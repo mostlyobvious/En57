@@ -165,29 +165,11 @@ module En57
       end
     end
 
-    require_relative "../benchmark/append_no_fail_if"
-    require_relative "../benchmark/append_non_conflicting_tags"
-    require_relative "../benchmark/concurrent_append_no_fail_if"
-    require_relative "../benchmark/concurrent_append_non_conflicting_tags"
-    require_relative "../benchmark/concurrent_append_non_conflicting_tags_seeded"
-    require_relative "../benchmark/concurrent_append_conflicting_tags"
-    require_relative "../benchmark/res_append_stream_any"
-    require_relative "../benchmark/res_concurrent_append_non_conflicting_streams"
-    require_relative "../benchmark/res_concurrent_append_conflicting_streams"
+    Dir[File.expand_path("../benchmark/*.rb", __dir__)].sort.each do |path|
+      require path
+    end
 
     class Runner
-      SCENARIO_CLASSES = [
-        AppendNoFailIf,
-        AppendNonConflictingTags,
-        ConcurrentAppendNoFailIf,
-        ConcurrentAppendNonConflictingTags,
-        ConcurrentAppendNonConflictingTagsSeeded,
-        ConcurrentAppendConflictingTags,
-        ResAppendStreamAny,
-        ResConcurrentAppendNonConflictingStreams,
-        ResConcurrentAppendConflictingStreams,
-      ].freeze
-
       def self.classic(runs: 50, names: nil)
         selected_scenarios = scenarios(runs:)
         selected_scenarios = selected_scenarios.slice(*names) if names
@@ -198,7 +180,7 @@ module En57
       def self.names = scenarios(runs: nil).keys
 
       def self.scenarios(runs:)
-        SCENARIO_CLASSES.to_h do |scenario_class|
+        scenario_classes.to_h do |scenario_class|
           [
             scenario_class.key,
             ->(database_url, warmup_runs) do
@@ -207,6 +189,15 @@ module En57
           ]
         end
       end
+
+      def self.scenario_classes
+        Scenario
+          .subclasses
+          .select { it.respond_to?(:key) && it.respond_to?(:build) }
+          .sort_by(&:key)
+      end
+
+      private_class_method :scenario_classes
 
       def initialize(scenarios:, formatter:)
         @formatter = formatter
