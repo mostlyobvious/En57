@@ -3,6 +3,19 @@
 module En57
   module Benchmark
     class ConcurrentAppendNoFailIf < Scenario
+      def self.key = "concurrent-append-no-fail-if"
+
+      def self.build(database_url:, warmup_runs:, runs:)
+        new(
+          name: "10x100 concurrent append, no fail_if",
+          database_url:,
+          warmup_runs:,
+          runs:,
+          concurrency: 10,
+          batch_size: 100,
+        )
+      end
+
       def initialize(...)
         super
         @event_store =

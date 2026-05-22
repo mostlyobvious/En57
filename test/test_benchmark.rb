@@ -373,6 +373,23 @@ module En57
         )
       end
 
+      def test_runner_orders_scenario_classes
+        assert_equal(
+          [
+            AppendNoFailIf,
+            AppendNonConflictingTags,
+            ConcurrentAppendNoFailIf,
+            ConcurrentAppendNonConflictingTags,
+            ConcurrentAppendNonConflictingTagsSeeded,
+            ConcurrentAppendConflictingTags,
+            ResAppendStreamAny,
+            ResConcurrentAppendNonConflictingStreams,
+            ResConcurrentAppendConflictingStreams,
+          ],
+          Runner::SCENARIO_CLASSES,
+        )
+      end
+
       def test_classic_runner_builds_scenarios
         scenarios = Runner.classic.instance_variable_get(:@scenarios)
 
@@ -422,6 +439,7 @@ module En57
         ].each do |key, scenario_class, name, runs, concurrency|
           scenario = scenarios.fetch(key).call("postgres://example", 2)
 
+          assert_equal(key, scenario_class.key)
           assert_instance_of(scenario_class, scenario)
           assert_equal(name, scenario.name)
           assert_equal(

@@ -3,6 +3,19 @@
 module En57
   module Benchmark
     class AppendNoFailIf < Scenario
+      def self.key = "append-no-fail-if"
+
+      def self.build(database_url:, warmup_runs:, runs:)
+        new(
+          name: "1x100 append, no fail_if",
+          database_url:,
+          warmup_runs:,
+          runs: runs * 10,
+          concurrency: 1,
+          batch_size: 100,
+        )
+      end
+
       def initialize(...)
         super
         @event_store =

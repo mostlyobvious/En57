@@ -5,6 +5,19 @@ module En57
     class ConcurrentAppendNonConflictingTagsSeeded < Scenario
       SEEDED_EVENTS = 1_000_000
 
+      def self.key = "concurrent-append-non-conflicting-tags-seeded"
+
+      def self.build(database_url:, warmup_runs:, runs:)
+        new(
+          name: "10x100 concurrent append, non-conflicting tags (seeded)",
+          database_url:,
+          warmup_runs:,
+          runs:,
+          concurrency: 10,
+          batch_size: 100,
+        )
+      end
+
       def initialize(...)
         super
         @event_store =

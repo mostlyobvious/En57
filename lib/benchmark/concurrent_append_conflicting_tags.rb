@@ -3,6 +3,19 @@
 module En57
   module Benchmark
     class ConcurrentAppendConflictingTags < Scenario
+      def self.key = "concurrent-append-conflicting-tags"
+
+      def self.build(database_url:, warmup_runs:, runs:)
+        new(
+          name: "10x100 concurrent append, conflicting tags",
+          database_url:,
+          warmup_runs:,
+          runs:,
+          concurrency: 10,
+          batch_size: 100,
+        )
+      end
+
       def initialize(...)
         super
         @event_store =

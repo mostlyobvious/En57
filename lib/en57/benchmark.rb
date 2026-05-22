@@ -176,6 +176,18 @@ module En57
     require_relative "../benchmark/res_concurrent_append_conflicting_streams"
 
     class Runner
+      SCENARIO_CLASSES = [
+        AppendNoFailIf,
+        AppendNonConflictingTags,
+        ConcurrentAppendNoFailIf,
+        ConcurrentAppendNonConflictingTags,
+        ConcurrentAppendNonConflictingTagsSeeded,
+        ConcurrentAppendConflictingTags,
+        ResAppendStreamAny,
+        ResConcurrentAppendNonConflictingStreams,
+        ResConcurrentAppendConflictingStreams,
+      ].freeze
+
       def self.classic(runs: 50, names: nil)
         selected_scenarios = scenarios(runs:)
         selected_scenarios = selected_scenarios.slice(*names) if names
@@ -186,113 +198,14 @@ module En57
       def self.names = scenarios(runs: nil).keys
 
       def self.scenarios(runs:)
-        {
-          "append-no-fail-if" => ->(database_url, warmup_runs) do
-            AppendNoFailIf.new(
-              name: "1x100 append, no fail_if",
-              database_url:,
-              warmup_runs:,
-              runs: runs * 10,
-              concurrency: 1,
-              batch_size: 100,
-            )
-          end,
-          "append-non-conflicting-tags" => ->(database_url, warmup_runs) do
-            AppendNonConflictingTags.new(
-              name: "1x100 append, non-conflicting tags",
-              database_url:,
-              warmup_runs:,
-              runs: runs * 10,
-              concurrency: 1,
-              batch_size: 100,
-            )
-          end,
-          "concurrent-append-no-fail-if" => ->(database_url, warmup_runs) do
-            ConcurrentAppendNoFailIf.new(
-              name: "10x100 concurrent append, no fail_if",
-              database_url:,
-              warmup_runs:,
-              runs:,
-              concurrency: 10,
-              batch_size: 100,
-            )
-          end,
-          "concurrent-append-non-conflicting-tags" => ->(
-            database_url,
-            warmup_runs
-          ) do
-            ConcurrentAppendNonConflictingTags.new(
-              name: "10x100 concurrent append, non-conflicting tags",
-              database_url:,
-              warmup_runs:,
-              runs:,
-              concurrency: 10,
-              batch_size: 100,
-            )
-          end,
-          "concurrent-append-non-conflicting-tags-seeded" => ->(
-            database_url,
-            warmup_runs
-          ) do
-            ConcurrentAppendNonConflictingTagsSeeded.new(
-              name: "10x100 concurrent append, non-conflicting tags (seeded)",
-              database_url:,
-              warmup_runs:,
-              runs:,
-              concurrency: 10,
-              batch_size: 100,
-            )
-          end,
-          "concurrent-append-conflicting-tags" => ->(
-            database_url,
-            warmup_runs
-          ) do
-            ConcurrentAppendConflictingTags.new(
-              name: "10x100 concurrent append, conflicting tags",
-              database_url:,
-              warmup_runs:,
-              runs:,
-              concurrency: 10,
-              batch_size: 100,
-            )
-          end,
-          "res-append-stream-any" => ->(database_url, warmup_runs) do
-            ResAppendStreamAny.new(
-              name: "1x100 append, expected_version :any (RES)",
-              database_url:,
-              warmup_runs:,
-              runs: runs * 10,
-              concurrency: 1,
-              batch_size: 100,
-            )
-          end,
-          "res-concurrent-append-non-conflicting-streams" => ->(
-            database_url,
-            warmup_runs
-          ) do
-            ResConcurrentAppendNonConflictingStreams.new(
-              name: "10x100 concurrent append, non-conflicting streams (RES)",
-              database_url:,
-              warmup_runs:,
-              runs:,
-              concurrency: 10,
-              batch_size: 100,
-            )
-          end,
-          "res-concurrent-append-conflicting-streams" => ->(
-            database_url,
-            warmup_runs
-          ) do
-            ResConcurrentAppendConflictingStreams.new(
-              name: "10x100 concurrent append, conflicting streams (RES)",
-              database_url:,
-              warmup_runs:,
-              runs:,
-              concurrency: 10,
-              batch_size: 100,
-            )
-          end,
-        }
+        SCENARIO_CLASSES.to_h do |scenario_class|
+          [
+            scenario_class.key,
+            ->(database_url, warmup_runs) do
+              scenario_class.build(database_url:, warmup_runs:, runs:)
+            end,
+          ]
+        end
       end
 
       def initialize(scenarios:, formatter:)

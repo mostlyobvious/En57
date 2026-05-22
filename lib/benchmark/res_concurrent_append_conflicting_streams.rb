@@ -6,6 +6,19 @@ require "rails_event_store"
 module En57
   module Benchmark
     class ResConcurrentAppendConflictingStreams < Scenario
+      def self.key = "res-concurrent-append-conflicting-streams"
+
+      def self.build(database_url:, warmup_runs:, runs:)
+        new(
+          name: "10x100 concurrent append, conflicting streams (RES)",
+          database_url:,
+          warmup_runs:,
+          runs:,
+          concurrency: 10,
+          batch_size: 100,
+        )
+      end
+
       def initialize(...)
         super
         ActiveRecord::Base.establish_connection(@database_url)

@@ -6,6 +6,19 @@ require "rails_event_store"
 module En57
   module Benchmark
     class ResAppendStreamAny < Scenario
+      def self.key = "res-append-stream-any"
+
+      def self.build(database_url:, warmup_runs:, runs:)
+        new(
+          name: "1x100 append, expected_version :any (RES)",
+          database_url:,
+          warmup_runs:,
+          runs: runs * 10,
+          concurrency: 1,
+          batch_size: 100,
+        )
+      end
+
       def initialize(...)
         super
         ActiveRecord::Base.establish_connection(@database_url)

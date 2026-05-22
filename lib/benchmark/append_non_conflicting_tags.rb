@@ -3,6 +3,19 @@
 module En57
   module Benchmark
     class AppendNonConflictingTags < Scenario
+      def self.key = "append-non-conflicting-tags"
+
+      def self.build(database_url:, warmup_runs:, runs:)
+        new(
+          name: "1x100 append, non-conflicting tags",
+          database_url:,
+          warmup_runs:,
+          runs: runs * 10,
+          concurrency: 1,
+          batch_size: 100,
+        )
+      end
+
       def initialize(...)
         super
         @event_store =
