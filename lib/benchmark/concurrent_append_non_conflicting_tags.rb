@@ -14,12 +14,13 @@ module En57
       end
 
       call do |measure, _run_id|
-        type = "event_benchmarked"
         concurrently do |writer_id, barrier|
-          tags = %W[writer:#{writer_id}]
-          scope = @event_store.read.of_type(type).with_tag(tags)
-          events = Array.new(@batch_size) { Event.new(type: type, tags: tags) }
-
+          scope =
+            @event_store
+              .read
+              .of_type(type = "event_benchmarked")
+              .with_tag(tags = ["writer:#{writer_id}"])
+          events = @batch_size.times.map { Event.new(type:, tags:) }
           barrier.wait
 
           measure.call do

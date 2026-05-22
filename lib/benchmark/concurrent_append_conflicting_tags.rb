@@ -14,18 +14,18 @@ module En57
       end
 
       call do |measure, run_id|
-        type = "event_benchmarked"
-        tags = %W[writer:#{run_id}]
         concurrently do |_writer_id, barrier|
-          scope = @event_store.read.of_type(type).with_tag(tags)
-          events = Array.new(@batch_size) { Event.new(type: type, tags: tags) }
-          position = 0
-
+          scope =
+            @event_store
+              .read
+              .of_type(type = "event_benchmarked")
+              .with_tag(tags = ["writer:#{run_id}"])
+          events = @batch_size.times.map { Event.new(type:, tags:) }
           barrier.wait
 
           measure.call do
             begin
-              @event_store.append(events, fail_if: scope.after(position))
+              @event_store.append(events, fail_if: scope.after(position = 0))
             rescue AppendConditionViolated
               record_retry
               scope.each_with_position do |_event, event_position|

@@ -15,9 +15,10 @@ module En57
       end
 
       call do |measure, run_id|
-        type = "event_benchmarked"
-        tags = %W[writer:#{run_id}]
-        events = Array.new(@batch_size) { Event.new(type: type, tags: tags) }
+        events =
+          @batch_size.times.map do
+            Event.new(type: "event_benchmarked", tags: ["writer:#{run_id}"])
+          end
 
         measure.call { @event_store.append(events) }
       end

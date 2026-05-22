@@ -15,10 +15,12 @@ module En57
       end
 
       call do |measure, run_id|
-        type = "event_benchmarked"
-        tags = %W[writer:#{run_id}]
-        scope = @event_store.read.of_type(type).with_tag(tags)
-        events = Array.new(@batch_size) { Event.new(type: type, tags: tags) }
+        scope =
+          @event_store
+            .read
+            .of_type(type = "event_benchmarked")
+            .with_tag(tags = ["writer:#{run_id}"])
+        events = @batch_size.times.map { Event.new(type:, tags:) }
 
         measure.call do
           begin

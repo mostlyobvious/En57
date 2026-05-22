@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require "active_record"
-require "rails_event_store"
-
 module En57
   module Benchmark
     Scenario.define do
@@ -13,20 +10,29 @@ module En57
       batch_size 100
 
       setup do |database_url|
+        require "active_record"
+        require "rails_event_store"
+
         ActiveRecord::Base.establish_connection(database_url)
         @event_store = RailsEventStore::JSONClient.new
       end
 
       call do |measure, run_id|
-        type = "event_benchmarked"
-        tag = "writer:#{run_id}"
         events =
-          Array.new(@batch_size) do
-            RubyEventStore::Event.new(metadata: { event_type: type })
+          @batch_size.times.map do
+            RubyEventStore::Event.new(
+              metadata: {
+                event_type: "event_benchmarked",
+              },
+            )
           end
 
         measure.call do
-          @event_store.append(events, stream_name: tag, expected_version: :any)
+          @event_store.append(
+            events,
+            stream_name: "writer:#{run_id}",
+            expected_version: :any,
+          )
         end
       end
     end
