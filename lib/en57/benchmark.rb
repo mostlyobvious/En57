@@ -120,7 +120,93 @@ module En57
       end
     end
 
+    ScenarioDefinition =
+      Data.define(
+        :database_instance,
+        :name,
+        :runs,
+        :concurrency,
+        :batch_size,
+        :setup,
+        :call_block,
+        :verify,
+      )
+
+    class ScenarioDSL
+      def initialize
+        @runs = ->(runs) { runs }
+        @concurrency = 1
+        @batch_size = 100
+        @setup = -> {}
+        @call_block = ->(_measure) {}
+        @verify = -> { true }
+      end
+
+      def database_instance(value) = @database_instance = value
+      def name(value) = @name = value
+
+      def runs(&block) = @runs = block
+      def concurrency(value) = @concurrency = value
+      def batch_size(value) = @batch_size = value
+      def setup(&block) = @setup = block
+      def call(&block) = @call_block = block
+      def verify(&block) = @verify = block
+
+      def definition
+        ScenarioDefinition.new(
+          database_instance: @database_instance,
+          name: @name,
+          runs: @runs,
+          concurrency: @concurrency,
+          batch_size: @batch_size,
+          setup: @setup,
+          call_block: @call_block,
+          verify: @verify,
+        )
+      end
+    end
+
     class Scenario
+      @definitions = []
+
+      def self.definitions = @definitions
+
+      def self.define(&block)
+        definition = ScenarioDSL.new.tap { it.instance_eval(&block) }.definition
+        Class
+          .new(self) do
+            define_singleton_method(:database_instance) do
+              definition.database_instance
+            end
+
+            define_singleton_method(
+              :build,
+            ) do |database_url:, warmup_runs:, runs:|
+              new(
+                name: definition.name,
+                database_url:,
+                runs: definition.runs.call(runs),
+                warmup_runs:,
+                concurrency: definition.concurrency,
+                batch_size: definition.batch_size,
+              )
+            end
+
+            define_method(:initialize) do |**kwargs|
+              super(**kwargs)
+              instance_exec(&definition.setup)
+            end
+
+            define_method(:call) do |measure|
+              instance_exec(measure, &definition.call_block)
+              verify
+            end
+
+            define_method(:verify) { instance_exec(&definition.verify) }
+          end
+          .tap { definitions << it }
+      end
+
       def initialize(
         name:,
         database_url:,
@@ -180,24 +266,18 @@ module En57
       def self.names = scenarios(runs: nil).keys
 
       def self.scenarios(runs:)
-        scenario_classes.to_h do |scenario_class|
-          [
-            scenario_class.key,
-            ->(database_url, warmup_runs) do
-              scenario_class.build(database_url:, warmup_runs:, runs:)
-            end,
-          ]
-        end
-      end
-
-      def self.scenario_classes
         Scenario
-          .subclasses
-          .select { it.respond_to?(:key) && it.respond_to?(:build) }
-          .sort_by(&:key)
+          .definitions
+          .sort_by(&:database_instance)
+          .to_h do |scenario_class|
+            [
+              scenario_class.database_instance,
+              ->(database_url, warmup_runs) do
+                scenario_class.build(database_url:, warmup_runs:, runs:)
+              end,
+            ]
+          end
       end
-
-      private_class_method :scenario_classes
 
       def initialize(scenarios:, formatter:)
         @formatter = formatter

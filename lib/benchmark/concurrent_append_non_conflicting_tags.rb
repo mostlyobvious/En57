@@ -2,37 +2,25 @@
 
 module En57
   module Benchmark
-    class ConcurrentAppendNonConflictingTags < Scenario
-      def self.key = "concurrent-append-non-conflicting-tags"
+    Scenario.define do
+      database_instance "concurrent-append-non-conflicting-tags"
+      name "10x100 concurrent append, non-conflicting tags"
+      concurrency 10
+      batch_size 100
 
-      def self.build(database_url:, warmup_runs:, runs:)
-        new(
-          name: "10x100 concurrent append, non-conflicting tags",
-          database_url:,
-          warmup_runs:,
-          runs:,
-          concurrency: 10,
-          batch_size: 100,
-        )
-      end
-
-      def initialize(...)
-        super
+      setup do
         @event_store =
           EventStore.for_pooled_pg(@database_url, max_connections: @concurrency)
       end
 
-      private
-
-      def call(measure)
+      call do |measure|
         type = "event_benchmarked"
         barrier = Concurrent::CyclicBarrier.new(@concurrency)
 
         concurrently(@concurrency) do
           tags = %W[writer:#{SecureRandom.hex(4)}]
           scope = @event_store.read.of_type(type).with_tag(tags)
-          events =
-            Array.new(@batch_size) { En57::Event.new(type: type, tags: tags) }
+          events = Array.new(@batch_size) { Event.new(type: type, tags: tags) }
 
           barrier.wait
 
@@ -45,12 +33,12 @@ module En57
             end
           end
         end
-        verify
       end
 
-      def verify =
+      verify do
         @event_store.read.each.to_a.size ==
           total_runs * @concurrency * @batch_size
+      end
     end
   end
 end

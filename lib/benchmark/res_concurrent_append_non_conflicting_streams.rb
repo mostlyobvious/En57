@@ -5,29 +5,18 @@ require "rails_event_store"
 
 module En57
   module Benchmark
-    class ResConcurrentAppendNonConflictingStreams < Scenario
-      def self.key = "res-concurrent-append-non-conflicting-streams"
+    Scenario.define do
+      database_instance "res-concurrent-append-non-conflicting-streams"
+      name "10x100 concurrent append, non-conflicting streams (RES)"
+      concurrency 10
+      batch_size 100
 
-      def self.build(database_url:, warmup_runs:, runs:)
-        new(
-          name: "10x100 concurrent append, non-conflicting streams (RES)",
-          database_url:,
-          warmup_runs:,
-          runs:,
-          concurrency: 10,
-          batch_size: 100,
-        )
-      end
-
-      def initialize(...)
-        super
+      setup do
         ActiveRecord::Base.establish_connection(@database_url)
         @event_store = RailsEventStore::JSONClient.new
       end
 
-      private
-
-      def call(measure)
+      call do |measure|
         type = "event_benchmarked"
         barrier = Concurrent::CyclicBarrier.new(@concurrency)
 
@@ -49,12 +38,12 @@ module En57
             )
           end
         end
-        verify
       end
 
-      def verify =
+      verify do
         @event_store.read.each.to_a.size ==
           total_runs * @concurrency * @batch_size
+      end
     end
   end
 end

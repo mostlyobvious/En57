@@ -2,34 +2,23 @@
 
 module En57
   module Benchmark
-    class AppendNonConflictingTags < Scenario
-      def self.key = "append-non-conflicting-tags"
+    Scenario.define do
+      database_instance "append-non-conflicting-tags"
+      name "1x100 append, non-conflicting tags"
+      runs { it * 10 }
+      concurrency 1
+      batch_size 100
 
-      def self.build(database_url:, warmup_runs:, runs:)
-        new(
-          name: "1x100 append, non-conflicting tags",
-          database_url:,
-          warmup_runs:,
-          runs: runs * 10,
-          concurrency: 1,
-          batch_size: 100,
-        )
-      end
-
-      def initialize(...)
-        super
+      setup do
         @event_store =
           EventStore.for_pooled_pg(@database_url, max_connections: @concurrency)
       end
 
-      private
-
-      def call(measure)
+      call do |measure|
         type = "event_benchmarked"
         tags = %W[writer:#{SecureRandom.hex(4)}]
         scope = @event_store.read.of_type(type).with_tag(tags)
-        events =
-          Array.new(@batch_size) { En57::Event.new(type: type, tags: tags) }
+        events = Array.new(@batch_size) { Event.new(type: type, tags: tags) }
 
         measure.call do
           begin
@@ -39,10 +28,9 @@ module En57
             retry
           end
         end
-        verify
       end
 
-      def verify = @event_store.read.each.to_a.size == total_runs * @batch_size
+      verify { @event_store.read.each.to_a.size == total_runs * @batch_size }
     end
   end
 end

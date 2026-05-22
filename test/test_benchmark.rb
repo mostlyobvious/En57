@@ -251,6 +251,88 @@ module En57
         assert_in_delta(0.15, formatted_results.fetch(0).median)
       end
 
+      def test_scenario_define_registers_configured_scenario
+        original_definitions = Scenario.definitions.dup
+        scenario_class =
+          Scenario.define do
+            database_instance "defined"
+            name "Defined scenario"
+            runs { it * 2 }
+            concurrency 2
+            batch_size 3
+
+            setup { @setup_called = true }
+            call do |measure|
+              measure.call { @call_measured = true }
+              nil
+            end
+            verify { @setup_called && @call_measured }
+          end
+        scenario =
+          scenario_class.build(
+            database_url: "postgres://example",
+            warmup_runs: 0,
+            runs: 4,
+          )
+
+        assert_includes(Scenario.definitions, scenario_class)
+        assert_equal("defined", scenario_class.database_instance)
+        assert_equal("Defined scenario", scenario.name)
+        assert_equal(
+          "postgres://example",
+          scenario.instance_variable_get(:@database_url),
+        )
+        assert_equal(8, scenario.runs)
+        assert_equal(2, scenario.instance_variable_get(:@concurrency))
+        assert_equal(3, scenario.instance_variable_get(:@batch_size))
+        assert_equal(true, scenario.run(->(&block) { block.call }))
+        assert_equal(true, scenario.instance_variable_get(:@call_measured))
+      ensure
+        Scenario.definitions.replace(original_definitions)
+      end
+
+      def test_scenario_define_uses_verify_block
+        original_definitions = Scenario.definitions.dup
+        scenario_class =
+          Scenario.define do
+            database_instance "unverified"
+            name "Unverified scenario"
+            verify { false }
+          end
+        scenario =
+          scenario_class.build(
+            database_url: "postgres://example",
+            warmup_runs: 0,
+            runs: 1,
+          )
+
+        assert_equal(false, scenario.run(->(&block) { block.call }))
+      ensure
+        Scenario.definitions.replace(original_definitions)
+      end
+
+      def test_scenario_define_defaults
+        original_definitions = Scenario.definitions.dup
+        scenario_class =
+          Scenario.define do
+            database_instance "defaulted"
+            name "Defaulted scenario"
+          end
+        scenario =
+          scenario_class.build(
+            database_url: "postgres://example",
+            warmup_runs: 0,
+            runs: 7,
+          )
+
+        assert_equal(7, scenario.runs)
+        assert_equal(1, scenario.instance_variable_get(:@concurrency))
+        assert_equal(100, scenario.instance_variable_get(:@batch_size))
+        assert_equal(true, scenario.run(->(&block) { block.call }))
+      ensure
+        Scenario.definitions.replace(original_definitions)
+      end
+
       def test_scenario_stores_configuration
         scenario =
           Scenario.new(
@@ -376,35 +458,25 @@ module En57
         assert_equal(2, calls.value)
       end
 
-      def test_runner_discovers_scenario_classes
-        first_scenario_class =
+      def test_runner_discovers_scenarios_by_database_instance
+        first_scenario =
           Class.new do
-            def self.key = "a-discovered"
+            def self.database_instance = "a-discovered"
 
             def self.build(database_url:, warmup_runs:, runs:)
               [database_url, warmup_runs, runs]
             end
           end
-        second_scenario_class =
+        second_scenario =
           Class.new do
-            def self.key = "b-discovered"
+            def self.database_instance = "b-discovered"
 
             def self.build(database_url:, warmup_runs:, runs:)
               [database_url, warmup_runs, runs]
             end
           end
-        incomplete_scenario_class = Class.new { def self.key = "ignored" }
-        anonymous_scenario_class = Class.new { def self.build(...) = nil }
 
-        Scenario.stub(
-          :subclasses,
-          [
-            second_scenario_class,
-            incomplete_scenario_class,
-            anonymous_scenario_class,
-            first_scenario_class,
-          ],
-        ) do
+        Scenario.stub(:definitions, [second_scenario, first_scenario]) do
           assert_equal(%w[a-discovered b-discovered], Runner.names)
           assert_equal(
             ["postgres://example", 2, 3],
@@ -417,21 +489,18 @@ module En57
       end
 
       def test_classic_runner_selects_named_scenarios
-        first_scenario_class =
+        first_scenario =
           Class.new do
-            def self.key = "first"
+            def self.database_instance = "first"
             def self.build(...) = nil
           end
-        second_scenario_class =
+        second_scenario =
           Class.new do
-            def self.key = "second"
+            def self.database_instance = "second"
             def self.build(...) = nil
           end
 
-        Scenario.stub(
-          :subclasses,
-          [first_scenario_class, second_scenario_class],
-        ) do
+        Scenario.stub(:definitions, [first_scenario, second_scenario]) do
           runner = Runner.classic(names: ["first"])
 
           assert_equal(
@@ -442,16 +511,16 @@ module En57
       end
 
       def test_classic_runner_defaults_to_fifty_runs
-        scenario_class =
+        scenario =
           Class.new do
-            def self.key = "scenario"
+            def self.database_instance = "scenario"
 
             def self.build(database_url:, warmup_runs:, runs:)
               [database_url, warmup_runs, runs]
             end
           end
 
-        Scenario.stub(:subclasses, [scenario_class]) do
+        Scenario.stub(:definitions, [scenario]) do
           scenario =
             Runner
               .classic
