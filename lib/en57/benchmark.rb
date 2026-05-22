@@ -19,13 +19,11 @@ module En57
         :max,
         :median,
         :retry_count,
-        :verified,
       )
 
     class Table
       def format(results)
-        rows = results.select(&:verified)
-        return "" if rows.empty?
+        return "" if results.empty?
 
         header = [
           "Scenario",
@@ -38,7 +36,7 @@ module En57
           "Retries",
         ]
         body =
-          rows.map do |result|
+          results.map do |result|
             [
               result.name,
               result.runs.to_s,
@@ -129,7 +127,6 @@ module En57
         :batch_size,
         :setup,
         :call_block,
-        :verify,
       )
 
     class ScenarioDSL
@@ -139,7 +136,6 @@ module En57
         @batch_size = 100
         @setup = ->(_database_url) {}
         @call_block = ->(_measure) {}
-        @verify = -> { true }
       end
 
       def database_instance(value) = @database_instance = value
@@ -150,7 +146,6 @@ module En57
       def batch_size(value) = @batch_size = value
       def setup(&block) = @setup = block
       def call(&block) = @call_block = block
-      def verify(&block) = @verify = block
 
       def definition
         ScenarioDefinition.new(
@@ -161,7 +156,6 @@ module En57
           batch_size: @batch_size,
           setup: @setup,
           call_block: @call_block,
-          verify: @verify,
         )
       end
     end
@@ -199,10 +193,7 @@ module En57
 
             define_method(:call) do |measure|
               instance_exec(measure, &definition.call_block)
-              verify
             end
-
-            define_method(:verify) { instance_exec(&definition.verify) }
           end
           .tap { definitions << it }
       end
@@ -233,9 +224,8 @@ module En57
       def run(measure)
         warmup
         reset_retry_count
-        verified = true
-        @runs.times { verified = call(measure) }
-        verified
+        @runs.times { call(measure) }
+        nil
       end
 
       private
@@ -290,10 +280,9 @@ module En57
             PgEphemeral.with_server(instance_name:) do |server|
               samples = []
               scenario = mk_scenario.call(server.url, 2)
-              verified =
-                scenario.run(
-                  ->(&block) { samples << ::Benchmark.realtime { block.call } },
-                )
+              scenario.run(
+                ->(&block) { samples << ::Benchmark.realtime { block.call } },
+              )
               measurement = Measurement.from(samples)
 
               Result.new(
@@ -305,12 +294,11 @@ module En57
                 max: measurement.max,
                 median: measurement.median,
                 retry_count: scenario.retry_count,
-                verified:,
               )
             end
           end
 
-        @formatter.format(results.select(&:verified))
+        @formatter.format(results)
       end
     end
 

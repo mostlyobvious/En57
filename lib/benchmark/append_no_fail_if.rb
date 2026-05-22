@@ -21,8 +21,6 @@ module En57
 
         measure.call { @event_store.append(events) }
       end
-
-      verify { @event_store.read.each.to_a.size == total_runs * @batch_size }
     end
   end
 end

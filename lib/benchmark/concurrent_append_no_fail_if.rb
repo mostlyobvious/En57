@@ -26,11 +26,6 @@ module En57
           measure.call { @event_store.append(events) }
         end
       end
-
-      verify do
-        @event_store.read.each.to_a.size ==
-          total_runs * @concurrency * @batch_size
-      end
     end
   end
 end

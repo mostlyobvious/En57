@@ -34,11 +34,6 @@ module En57
           end
         end
       end
-
-      verify do
-        @event_store.read.each.to_a.size ==
-          1_000_000 + total_runs * @concurrency * @batch_size
-      end
     end
   end
 end

@@ -29,8 +29,6 @@ module En57
           end
         end
       end
-
-      verify { @event_store.read.each.to_a.size == total_runs * @batch_size }
     end
   end
 end

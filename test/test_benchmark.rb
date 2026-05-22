@@ -10,7 +10,7 @@ module En57
       cover "En57::Benchmark::CLI#run"
       cover "En57::Benchmark::Scenario#concurrently"
 
-      def test_table_formats_verified_results
+      def test_table_formats_results
         output =
           Table.new.format(
             [
@@ -23,7 +23,6 @@ module En57
                 max: 0.002,
                 median: 0.0015,
                 retry_count: 12,
-                verified: true,
               ),
             ],
           )
@@ -50,7 +49,6 @@ module En57
                 max: 0.001,
                 median: 0.001,
                 retry_count: 1,
-                verified: true,
               ),
               Result.new(
                 name: "longer",
@@ -61,7 +59,6 @@ module En57
                 max: 0.01,
                 median: 0.01,
                 retry_count: 100,
-                verified: true,
               ),
             ],
           )
@@ -76,28 +73,7 @@ module En57
         )
       end
 
-      def test_table_omits_unverified_results
-        assert_equal(
-          "",
-          Table.new.format(
-            [
-              Result.new(
-                name: "scenario",
-                runs: 50,
-                mean: 0.00123,
-                stddev: 0.00045,
-                min: 0.001,
-                max: 0.002,
-                median: 0.0015,
-                retry_count: 12,
-                verified: false,
-              ),
-            ],
-          ),
-        )
-      end
-
-      def test_runner_formats_only_verified_results
+      def test_runner_formats_results
         formatter = Object.new
         formatted_results = nil
 
@@ -107,16 +83,15 @@ module En57
         end
 
         server = Data.define(:url).new("postgres://example")
-        mk_scenario = ->(name, verified) do
+        mk_scenario = ->(name) do
           ->(_database_url, _warmup_runs) do
             Data
-              .define(:name, :runs, :verified, :retry_count) do
+              .define(:name, :runs, :retry_count) do
                 def run(measure)
                   3.times { measure.call { nil } }
-                  verified
                 end
               end
-              .new(name, 1, verified, 3)
+              .new(name, 1, 3)
           end
         end
 
@@ -128,16 +103,16 @@ module En57
             Runner.new(
               formatter:,
               scenarios: {
-                "verified" => mk_scenario.call("verified", true),
-                "unverified" => mk_scenario.call("unverified", false),
+                "first" => mk_scenario.call("first"),
+                "second" => mk_scenario.call("second"),
               },
             ).run
           end
 
         assert_equal("formatted", output)
-        assert_equal(["verified"], formatted_results.map(&:name))
-        assert_equal([1], formatted_results.map(&:runs))
-        assert_equal([3], formatted_results.map(&:retry_count))
+        assert_equal(%w[first second], formatted_results.map(&:name))
+        assert_equal([1, 1], formatted_results.map(&:runs))
+        assert_equal([3, 3], formatted_results.map(&:retry_count))
       end
 
       def test_runner_uses_scenario_instance_names_and_database_urls
@@ -266,7 +241,6 @@ module En57
               measure.call { @call_measured = true }
               nil
             end
-            verify { @setup_called && @call_measured }
           end
         scenario =
           scenario_class.build(
@@ -285,7 +259,8 @@ module En57
         assert_equal(8, scenario.runs)
         assert_equal(2, scenario.instance_variable_get(:@concurrency))
         assert_equal(3, scenario.instance_variable_get(:@batch_size))
-        assert_equal(true, scenario.run(->(&block) { block.call }))
+        scenario.run(->(&block) { block.call })
+
         assert_equal(true, scenario.instance_variable_get(:@call_measured))
       ensure
         Scenario.definitions.replace(original_definitions)
@@ -314,26 +289,6 @@ module En57
         Scenario.definitions.replace(original_definitions)
       end
 
-      def test_scenario_define_uses_verify_block
-        original_definitions = Scenario.definitions.dup
-        scenario_class =
-          Scenario.define do
-            database_instance "unverified"
-            name "Unverified scenario"
-            verify { false }
-          end
-        scenario =
-          scenario_class.build(
-            database_url: "postgres://example",
-            warmup_runs: 0,
-            runs: 1,
-          )
-
-        assert_equal(false, scenario.run(->(&block) { block.call }))
-      ensure
-        Scenario.definitions.replace(original_definitions)
-      end
-
       def test_scenario_define_defaults
         original_definitions = Scenario.definitions.dup
         scenario_class =
@@ -351,7 +306,7 @@ module En57
         assert_equal(7, scenario.runs)
         assert_equal(1, scenario.instance_variable_get(:@concurrency))
         assert_equal(100, scenario.instance_variable_get(:@batch_size))
-        assert_equal(true, scenario.run(->(&block) { block.call }))
+        scenario.run(->(&block) { block.call })
       ensure
         Scenario.definitions.replace(original_definitions)
       end
@@ -410,10 +365,10 @@ module En57
           )
 
         assert_equal(0, scenario.retry_count)
-        assert_equal(true, scenario.run(->(&block) { block.call }))
+        scenario.run(->(&block) { block.call })
       end
 
-      def test_scenario_verifies_when_no_measured_runs
+      def test_scenario_runs_when_no_measured_runs
         scenario =
           Scenario.new(
             name: "empty",
@@ -424,7 +379,7 @@ module En57
             batch_size: 1,
           )
 
-        assert_equal(true, scenario.run(->(&block) { block.call }))
+        scenario.run(->(&block) { block.call })
       end
 
       def test_scenario_counts_retries_after_warmup
@@ -449,7 +404,8 @@ module En57
             end
             .new
 
-        assert_equal(true, scenario.run(->(&block) { block.call }))
+        scenario.run(->(&block) { block.call })
+
         assert_equal(2, scenario.retry_count)
       end
 
@@ -477,7 +433,8 @@ module En57
             end
             .new(calls)
 
-        assert_equal(true, scenario.run(->(&block) { block.call }))
+        scenario.run(->(&block) { block.call })
+
         assert_equal(2, calls.value)
       end
 

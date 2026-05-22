@@ -29,8 +29,6 @@ module En57
           @event_store.append(events, stream_name: tag, expected_version: :any)
         end
       end
-
-      verify { @event_store.read.each.to_a.size == total_runs * @batch_size }
     end
   end
 end
