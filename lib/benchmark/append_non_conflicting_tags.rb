@@ -11,14 +11,14 @@ module En57
 
       private
 
-      def call
+      def call(measure)
         type = "event_benchmarked"
         tags = %W[writer:#{SecureRandom.hex(4)}]
         scope = @event_store.read.of_type(type).with_tag(tags)
         events =
           Array.new(@batch_size) { En57::Event.new(type: type, tags: tags) }
 
-        @measure.call do
+        measure.call do
           begin
             @event_store.append(events, fail_if: scope.after(position = 0))
           rescue AppendConditionViolated
@@ -26,6 +26,7 @@ module En57
             retry
           end
         end
+        verify
       end
 
       def verify = @event_store.read.each.to_a.size == total_runs * @batch_size

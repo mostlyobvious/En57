@@ -14,7 +14,7 @@ module En57
 
       private
 
-      def call
+      def call(measure)
         type = "event_benchmarked"
         tag = "writer:#{SecureRandom.hex(4)}"
         events =
@@ -22,9 +22,10 @@ module En57
             RubyEventStore::Event.new(metadata: { event_type: type })
           end
 
-        @measure.call do
+        measure.call do
           @event_store.append(events, stream_name: tag, expected_version: :any)
         end
+        verify
       end
 
       def verify = @event_store.read.each.to_a.size == total_runs * @batch_size

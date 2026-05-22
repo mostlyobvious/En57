@@ -108,15 +108,15 @@ module En57
 
         server = Data.define(:url).new("postgres://example")
         mk_scenario = ->(name, verified) do
-          ->(_database_url, _warmup_runs, measure) do
+          ->(_database_url, _warmup_runs) do
             Data
-              .define(:name, :runs, :measure, :verified, :retry_count) do
-                def run
+              .define(:name, :runs, :verified, :retry_count) do
+                def run(measure)
                   3.times { measure.call { nil } }
                   verified
                 end
               end
-              .new(name, 1, measure, verified, 3)
+              .new(name, 1, verified, 3)
           end
         end
 
@@ -146,19 +146,17 @@ module En57
         server = Data.define(:url).new("postgres://example")
         instance_names = []
         database_urls = []
+        warmup_runs = []
         measured_blocks = 0
-        mk_scenario = ->(database_url, _warmup_runs, measure) do
+        mk_scenario = ->(database_url, warmup_run_count) do
           database_urls << database_url
+          warmup_runs << warmup_run_count
           Class
             .new do
-              define_method(:initialize) { @measure = measure }
-
-              attr_reader :measure
-
               def name = "scenario"
               def retry_count = 0
               def runs = 1
-              def run
+              def run(measure)
                 3.times { measure.call { @measured_blocks.call } }
                 true
               end
@@ -184,10 +182,11 @@ module En57
 
         assert_equal(["instance"], instance_names)
         assert_equal(["postgres://example"], database_urls)
+        assert_equal([2], warmup_runs)
         assert_equal(3, measured_blocks)
       end
 
-      def test_runner_discards_two_warmup_measurements
+      def test_scenario_uses_noop_measure_for_warmup
         formatter = Object.new
         formatted_results = nil
 
@@ -198,11 +197,13 @@ module En57
 
         scenario_class =
           Class.new(Scenario) do
-            def initialize(measure:, warmup_runs:)
+            attr_reader :call_count
+
+            def initialize(warmup_runs:)
+              @call_count = 0
               super(
                 name: "warmup",
                 database_url: "postgres://example",
-                measure:,
                 runs: 2,
                 warmup_runs:,
                 concurrency: 1,
@@ -210,10 +211,15 @@ module En57
               )
             end
 
-            def call = @measure.call { nil }
+            def call(measure)
+              @call_count += 1
+              measure.call { nil }
+              true
+            end
           end
+        scenario = nil
         server = Data.define(:url).new("postgres://example")
-        durations = [0.1, 0.2, 0.3, 0.5]
+        durations = [0.1, 0.2]
 
         PgEphemeral.stub(
           :with_server,
@@ -229,19 +235,20 @@ module En57
             Runner.new(
               formatter:,
               scenarios: {
-                "warmup" => ->(_database_url, warmup_runs, measure) do
-                  scenario_class.new(measure:, warmup_runs:)
+                "warmup" => ->(_database_url, warmup_runs) do
+                  scenario = scenario_class.new(warmup_runs:)
                 end,
               },
             ).run
           end
         end
 
-        assert_equal(0.4, formatted_results.fetch(0).mean)
-        assert_equal(0.1, formatted_results.fetch(0).stddev)
-        assert_equal(0.3, formatted_results.fetch(0).min)
-        assert_equal(0.5, formatted_results.fetch(0).max)
-        assert_equal(0.4, formatted_results.fetch(0).median)
+        assert_equal(4, scenario.call_count)
+        assert_in_delta(0.15, formatted_results.fetch(0).mean)
+        assert_in_delta(0.05, formatted_results.fetch(0).stddev)
+        assert_equal(0.1, formatted_results.fetch(0).min)
+        assert_equal(0.2, formatted_results.fetch(0).max)
+        assert_in_delta(0.15, formatted_results.fetch(0).median)
       end
 
       def test_scenario_calculates_total_runs
@@ -252,7 +259,6 @@ module En57
                 super(
                   name: "total",
                   database_url: "postgres://example",
-                  measure: ->(&block) { block.call },
                   runs: 2,
                   warmup_runs: 3,
                   concurrency: 1,
@@ -272,7 +278,6 @@ module En57
           Scenario.new(
             name: "noop",
             database_url: "postgres://example",
-            measure: ->(&block) { block.call },
             runs: 1,
             warmup_runs: 1,
             concurrency: 1,
@@ -280,7 +285,21 @@ module En57
           )
 
         assert_equal(0, scenario.retry_count)
-        assert_equal(true, scenario.run)
+        assert_equal(true, scenario.run(->(&block) { block.call }))
+      end
+
+      def test_scenario_verifies_when_no_measured_runs
+        scenario =
+          Scenario.new(
+            name: "empty",
+            database_url: "postgres://example",
+            runs: 0,
+            warmup_runs: 0,
+            concurrency: 1,
+            batch_size: 1,
+          )
+
+        assert_equal(true, scenario.run(->(&block) { block.call }))
       end
 
       def test_scenario_counts_retries_after_warmup
@@ -291,7 +310,6 @@ module En57
                 super(
                   name: "retrying",
                   database_url: "postgres://example",
-                  measure: ->(&block) { block.call },
                   runs: 2,
                   warmup_runs: 1,
                   concurrency: 1,
@@ -299,11 +317,14 @@ module En57
                 )
               end
 
-              def call = record_retry
+              def call(_measure)
+                record_retry
+                true
+              end
             end
             .new
 
-        assert_equal(true, scenario.run)
+        assert_equal(true, scenario.run(->(&block) { block.call }))
         assert_equal(2, scenario.retry_count)
       end
 
@@ -317,7 +338,6 @@ module En57
                 super(
                   name: "concurrent",
                   database_url: "postgres://example",
-                  measure: ->(&block) { block.call },
                   runs: 1,
                   warmup_runs: 0,
                   concurrency: 1,
@@ -325,11 +345,14 @@ module En57
                 )
               end
 
-              def call = concurrently(2) { @calls.increment }
+              def call(_measure)
+                concurrently(2) { @calls.increment }
+                true
+              end
             end
             .new(calls)
 
-        assert_equal(true, scenario.run)
+        assert_equal(true, scenario.run(->(&block) { block.call }))
         assert_equal(2, calls.value)
       end
 
@@ -351,7 +374,6 @@ module En57
       end
 
       def test_classic_runner_builds_scenarios
-        measure = ->(&block) { block.call }
         scenarios = Runner.classic.instance_variable_get(:@scenarios)
 
         [
@@ -398,7 +420,7 @@ module En57
             10,
           ],
         ].each do |key, scenario_class, name, runs, concurrency|
-          scenario = scenarios.fetch(key).call("postgres://example", 2, measure)
+          scenario = scenarios.fetch(key).call("postgres://example", 2)
 
           assert_instance_of(scenario_class, scenario)
           assert_equal(name, scenario.name)
@@ -406,7 +428,6 @@ module En57
             "postgres://example",
             scenario.instance_variable_get(:@database_url),
           )
-          assert_same(measure, scenario.instance_variable_get(:@measure))
           assert_equal(2, scenario.instance_variable_get(:@warmup_runs))
           assert_equal(
             concurrency,

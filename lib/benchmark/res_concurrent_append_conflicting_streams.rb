@@ -14,7 +14,7 @@ module En57
 
       private
 
-      def call
+      def call(measure)
         type = "event_benchmarked"
         stream_name = "writer:#{SecureRandom.hex(4)}"
         barrier = Concurrent::CyclicBarrier.new(@concurrency)
@@ -28,7 +28,7 @@ module En57
 
           barrier.wait
 
-          @measure.call do
+          measure.call do
             begin
               @event_store.append(
                 events,
@@ -42,6 +42,7 @@ module En57
             end
           end
         end
+        verify
       end
 
       def verify =

@@ -124,7 +124,6 @@ module En57
       def initialize(
         name:,
         database_url:,
-        measure:,
         runs:,
         warmup_runs:,
         concurrency:,
@@ -134,7 +133,6 @@ module En57
         @batch_size = batch_size
         @concurrency = concurrency
         @database_url = database_url
-        @measure = measure
         @runs = runs
         @retry_count = Concurrent::AtomicFixnum.new
         @warmup_runs = warmup_runs
@@ -144,22 +142,23 @@ module En57
 
       def retry_count = @retry_count.value
 
-      def run
+      NOOP_MEASURE = ->(&block) { block.call }
+
+      def run(measure)
         warmup
         reset_retry_count
-        @runs.times { call }
-        verify
+        verified = true
+        @runs.times { verified = call(measure) }
+        verified
       end
 
       private
 
       def total_runs = @runs + @warmup_runs
-      def call
-      end
+      def call(_measure) = true
       def record_retry = @retry_count.increment
       def reset_retry_count = @retry_count.value = 0
-      def verify = true
-      def warmup = @warmup_runs.times { call }
+      def warmup = @warmup_runs.times { call(NOOP_MEASURE) }
 
       def concurrently(concurrency)
         Array.new(concurrency) { Thread.new { yield } }.each(&:value)
@@ -188,41 +187,30 @@ module En57
 
       def self.scenarios(runs:)
         {
-          "append-no-fail-if" => ->(database_url, warmup_runs, measure) do
+          "append-no-fail-if" => ->(database_url, warmup_runs) do
             AppendNoFailIf.new(
               name: "1x100 append, no fail_if",
               database_url:,
-              measure:,
               warmup_runs:,
               runs: runs * 10,
               concurrency: 1,
               batch_size: 100,
             )
           end,
-          "append-non-conflicting-tags" => ->(
-            database_url,
-            warmup_runs,
-            measure
-          ) do
+          "append-non-conflicting-tags" => ->(database_url, warmup_runs) do
             AppendNonConflictingTags.new(
               name: "1x100 append, non-conflicting tags",
               database_url:,
-              measure:,
               warmup_runs:,
               runs: runs * 10,
               concurrency: 1,
               batch_size: 100,
             )
           end,
-          "concurrent-append-no-fail-if" => ->(
-            database_url,
-            warmup_runs,
-            measure
-          ) do
+          "concurrent-append-no-fail-if" => ->(database_url, warmup_runs) do
             ConcurrentAppendNoFailIf.new(
               name: "10x100 concurrent append, no fail_if",
               database_url:,
-              measure:,
               warmup_runs:,
               runs:,
               concurrency: 10,
@@ -231,13 +219,11 @@ module En57
           end,
           "concurrent-append-non-conflicting-tags" => ->(
             database_url,
-            warmup_runs,
-            measure
+            warmup_runs
           ) do
             ConcurrentAppendNonConflictingTags.new(
               name: "10x100 concurrent append, non-conflicting tags",
               database_url:,
-              measure:,
               warmup_runs:,
               runs:,
               concurrency: 10,
@@ -246,13 +232,11 @@ module En57
           end,
           "concurrent-append-non-conflicting-tags-seeded" => ->(
             database_url,
-            warmup_runs,
-            measure
+            warmup_runs
           ) do
             ConcurrentAppendNonConflictingTagsSeeded.new(
               name: "10x100 concurrent append, non-conflicting tags (seeded)",
               database_url:,
-              measure:,
               warmup_runs:,
               runs:,
               concurrency: 10,
@@ -261,24 +245,21 @@ module En57
           end,
           "concurrent-append-conflicting-tags" => ->(
             database_url,
-            warmup_runs,
-            measure
+            warmup_runs
           ) do
             ConcurrentAppendConflictingTags.new(
               name: "10x100 concurrent append, conflicting tags",
               database_url:,
-              measure:,
               warmup_runs:,
               runs:,
               concurrency: 10,
               batch_size: 100,
             )
           end,
-          "res-append-stream-any" => ->(database_url, warmup_runs, measure) do
+          "res-append-stream-any" => ->(database_url, warmup_runs) do
             ResAppendStreamAny.new(
               name: "1x100 append, expected_version :any (RES)",
               database_url:,
-              measure:,
               warmup_runs:,
               runs: runs * 10,
               concurrency: 1,
@@ -287,13 +268,11 @@ module En57
           end,
           "res-concurrent-append-non-conflicting-streams" => ->(
             database_url,
-            warmup_runs,
-            measure
+            warmup_runs
           ) do
             ResConcurrentAppendNonConflictingStreams.new(
               name: "10x100 concurrent append, non-conflicting streams (RES)",
               database_url:,
-              measure:,
               warmup_runs:,
               runs:,
               concurrency: 10,
@@ -302,13 +281,11 @@ module En57
           end,
           "res-concurrent-append-conflicting-streams" => ->(
             database_url,
-            warmup_runs,
-            measure
+            warmup_runs
           ) do
             ResConcurrentAppendConflictingStreams.new(
               name: "10x100 concurrent append, conflicting streams (RES)",
               database_url:,
-              measure:,
               warmup_runs:,
               runs:,
               concurrency: 10,
@@ -328,14 +305,12 @@ module En57
           @scenarios.map do |instance_name, mk_scenario|
             PgEphemeral.with_server(instance_name:) do |server|
               samples = []
-              scenario =
-                mk_scenario.call(
-                  server.url,
-                  warmup_runs = 2,
+              scenario = mk_scenario.call(server.url, 2)
+              verified =
+                scenario.run(
                   ->(&block) { samples << ::Benchmark.realtime { block.call } },
                 )
-              verified = scenario.run
-              measurement = Measurement.from(samples.drop(warmup_runs))
+              measurement = Measurement.from(samples)
 
               Result.new(
                 name: scenario.name,

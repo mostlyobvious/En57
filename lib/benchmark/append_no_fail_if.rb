@@ -11,13 +11,14 @@ module En57
 
       private
 
-      def call
+      def call(measure)
         type = "event_benchmarked"
         tags = %W[writer:#{SecureRandom.hex(4)}]
         events =
           Array.new(@batch_size) { En57::Event.new(type: type, tags: tags) }
 
-        @measure.call { @event_store.append(events) }
+        measure.call { @event_store.append(events) }
+        verify
       end
 
       def verify = @event_store.read.each.to_a.size == total_runs * @batch_size
