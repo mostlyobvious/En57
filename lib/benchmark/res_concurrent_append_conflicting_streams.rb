@@ -19,9 +19,7 @@ module En57
       call do |measure|
         type = "event_benchmarked"
         stream_name = "writer:#{SecureRandom.hex(4)}"
-        barrier = Concurrent::CyclicBarrier.new(@concurrency)
-
-        concurrently(@concurrency) do
+        concurrently do |barrier|
           events =
             Array.new(@batch_size) do
               RubyEventStore::Event.new(metadata: { event_type: type })

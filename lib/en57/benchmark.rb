@@ -236,8 +236,9 @@ module En57
       def reset_retry_count = @retry_count.value = 0
       def warmup = @warmup_runs.times { call(NOOP_MEASURE) }
 
-      def concurrently(concurrency)
-        Array.new(concurrency) { Thread.new { yield } }.each(&:value)
+      def concurrently
+        barrier = Concurrent::CyclicBarrier.new(@concurrency)
+        Array.new(@concurrency) { Thread.new { yield barrier } }.each(&:value)
       end
     end
 

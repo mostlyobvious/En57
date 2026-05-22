@@ -16,9 +16,7 @@ module En57
       call do |measure|
         type = "event_benchmarked"
         tags = %W[writer:#{SecureRandom.hex(4)}]
-        barrier = Concurrent::CyclicBarrier.new(@concurrency)
-
-        concurrently(@concurrency) do
+        concurrently do |barrier|
           scope = @event_store.read.of_type(type).with_tag(tags)
           events = Array.new(@batch_size) { Event.new(type: type, tags: tags) }
           position = 0

@@ -18,9 +18,7 @@ module En57
 
       call do |measure|
         type = "event_benchmarked"
-        barrier = Concurrent::CyclicBarrier.new(@concurrency)
-
-        concurrently(@concurrency) do
+        concurrently do |barrier|
           tag = "writer:#{SecureRandom.hex(4)}"
           @event_store.read.stream(tag).of_type(type)
           events =

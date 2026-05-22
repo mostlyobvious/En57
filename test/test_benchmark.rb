@@ -411,31 +411,37 @@ module En57
 
       def test_scenario_runs_blocks_concurrently
         calls = Concurrent::AtomicFixnum.new(0)
+        barriers = Queue.new
         scenario =
           Class
             .new(Scenario) do
-              def initialize(calls)
+              def initialize(calls, barriers)
+                @barriers = barriers
                 @calls = calls
                 super(
                   name: "concurrent",
                   database_url: "postgres://example",
                   runs: 1,
                   warmup_runs: 0,
-                  concurrency: 1,
+                  concurrency: 2,
                   batch_size: 1,
                 )
               end
 
               def call(_measure)
-                concurrently(2) { @calls.increment }
-                true
+                concurrently do |barrier|
+                  @barriers << barrier
+                  barrier.wait
+                  @calls.increment
+                end
               end
             end
-            .new(calls)
+            .new(calls, barriers)
 
         scenario.run(->(&block) { block.call })
 
         assert_equal(2, calls.value)
+        assert_equal(1, 2.times.map { barriers.pop }.uniq.size)
       end
 
       def test_runner_discovers_scenarios_by_database_instance
