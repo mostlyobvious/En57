@@ -385,28 +385,6 @@ module En57
         assert_equal(3, scenario.instance_variable_get(:@batch_size))
       end
 
-      def test_scenario_calculates_total_runs
-        scenario =
-          Class
-            .new(Scenario) do
-              def initialize
-                super(
-                  name: "total",
-                  database_url: "postgres://example",
-                  runs: 2,
-                  warmup_runs: 3,
-                  concurrency: 1,
-                  batch_size: 1,
-                )
-              end
-
-              def expose_total_runs = total_runs
-            end
-            .new
-
-        assert_equal(5, scenario.expose_total_runs)
-      end
-
       def test_scenario_defaults_to_noop_call
         scenario =
           Scenario.new(

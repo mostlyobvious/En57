@@ -202,24 +202,18 @@ module En57
       NOOP_MEASURE = ->(&block) { block.call }
 
       def run(measure)
-        warmup
-        reset_retry_count
+        @warmup_runs.times { call(NOOP_MEASURE, SecureRandom.hex(4)) }
+        @retry_count.value = 0
         @runs.times { call(measure, SecureRandom.hex(4)) }
       end
 
       private
 
-      def total_runs = @runs + @warmup_runs
       def setup(_database_url)
       end
       def call(_measure, _run_id)
       end
       def record_retry = @retry_count.increment
-      def reset_retry_count = @retry_count.value = 0
-      def warmup
-        @warmup_runs.times { call(NOOP_MEASURE, SecureRandom.hex(4)) }
-      end
-
       def concurrently
         barrier = Concurrent::CyclicBarrier.new(@concurrency)
         Array
