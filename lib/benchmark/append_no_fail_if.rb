@@ -14,7 +14,7 @@ module En57
           EventStore.for_pooled_pg(database_url, max_connections: @concurrency)
       end
 
-      def call(measure, run_id)
+      def call(measure, _retries, run_id)
         events =
           @batch_size.times.map do
             Event.new(type: "event_benchmarked", tags: ["writer:#{run_id}"])

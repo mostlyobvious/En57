@@ -13,7 +13,7 @@ module En57
           EventStore.for_pooled_pg(database_url, max_connections: @concurrency)
       end
 
-      def call(measure, run_id)
+      def call(measure, retries, run_id)
         concurrently do |_writer_id, barrier|
           scope =
             @event_store
@@ -27,7 +27,7 @@ module En57
             begin
               @event_store.append(events, fail_if: scope.after(position = 0))
             rescue AppendConditionViolated
-              record_retry
+              retries.call
               scope.each_with_position do |_event, event_position|
                 position = event_position
               end

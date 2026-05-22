@@ -190,30 +190,28 @@ module En57
         @concurrency = concurrency
         @database_url = database_url
         @runs = runs
-        @retry_count = Concurrent::AtomicFixnum.new
         @warmup_runs = warmup_runs
         setup(database_url)
       end
 
       attr_reader :name, :runs
 
-      def retry_count = @retry_count.value
-
       NOOP_MEASURE = ->(&block) { block.call }
+      NOOP_RETRIES = -> {}
 
-      def run(measure)
-        @warmup_runs.times { call(NOOP_MEASURE, SecureRandom.hex(4)) }
-        @retry_count.value = 0
-        @runs.times { call(measure, SecureRandom.hex(4)) }
+      def run(measure, retries)
+        @warmup_runs.times do
+          call(NOOP_MEASURE, NOOP_RETRIES, SecureRandom.hex(4))
+        end
+        @runs.times { call(measure, retries, SecureRandom.hex(4)) }
       end
 
       private
 
       def setup(_database_url)
       end
-      def call(_measure, _run_id)
+      def call(_measure, _retries, _run_id)
       end
-      def record_retry = @retry_count.increment
       def concurrently
         barrier = Concurrent::CyclicBarrier.new(@concurrency)
         Array
@@ -261,10 +259,13 @@ module En57
         results =
           @scenarios.map do |instance_name, mk_scenario|
             PgEphemeral.with_server(instance_name:) do |server|
-              samples = []
+              samples = Concurrent::Array.new
+              retries = Concurrent::AtomicFixnum.new
+
               scenario = mk_scenario.call(server.url, 2)
               scenario.run(
                 ->(&block) { samples << ::Benchmark.realtime { block.call } },
+                -> { retries.increment },
               )
               measurement = Measurement.from(samples)
 
@@ -276,7 +277,7 @@ module En57
                 min: measurement.min,
                 max: measurement.max,
                 median: measurement.median,
-                retry_count: scenario.retry_count,
+                retry_count: retries.value,
               )
             end
           end

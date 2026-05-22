@@ -16,7 +16,7 @@ module En57
         @event_store = RailsEventStore::JSONClient.new
       end
 
-      def call(measure, _run_id)
+      def call(measure, _retries, _run_id)
         concurrently do |writer_id, barrier|
           events =
             @batch_size.times.map do

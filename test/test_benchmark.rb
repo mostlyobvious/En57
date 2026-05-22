@@ -91,8 +91,11 @@ module En57
           ->(_database_url, _warmup_runs) do
             Data
               .define(:name, :runs, :retry_count) do
-                def run(measure)
-                  3.times { measure.call { nil } }
+                def run(measure, retries)
+                  3.times do
+                    retries.call
+                    measure.call { nil }
+                  end
                 end
               end
               .new(name, 1, 3)
@@ -119,6 +122,51 @@ module En57
         assert_equal([3, 3], formatted_results.map(&:retry_count))
       end
 
+      def test_runner_uses_concurrent_array_for_samples
+        formatter = Object.new
+        formatted_results = nil
+        formatter.define_singleton_method(:format) do |results|
+          formatted_results = results
+        end
+        server = Data.define(:url).new("postgres://example")
+        samples =
+          Class
+            .new(Array) do
+              def <<(sample)
+                super(sample + 1)
+              end
+            end
+            .new
+        scenario =
+          Class
+            .new do
+              def name = "scenario"
+              def runs = 2
+              def run(measure, _retries)
+                2.times { measure.call { nil } }
+              end
+            end
+            .new
+
+        PgEphemeral.stub(
+          :with_server,
+          ->(instance_name:, &block) { block.call(server) },
+        ) do
+          Concurrent::Array.stub(:new, samples) do
+            ::Benchmark.stub(:realtime, ->(&block) { block.call || 0.1 }) do
+              Runner.new(
+                formatter:,
+                scenarios: {
+                  "instance" => ->(_database_url, _warmup_runs) { scenario },
+                },
+              ).run
+            end
+          end
+        end
+
+        assert_in_delta(1.1, formatted_results.fetch(0).mean)
+      end
+
       def test_runner_uses_scenario_instance_names_and_database_urls
         formatter = Object.new
         formatter.define_singleton_method(:format) { |_results| "formatted" }
@@ -135,7 +183,7 @@ module En57
               def name = "scenario"
               def retry_count = 0
               def runs = 1
-              def run(measure)
+              def run(measure, _retries)
                 3.times { measure.call { @measured_blocks.call } }
                 true
               end
@@ -190,7 +238,7 @@ module En57
               )
             end
 
-            def call(measure, _run_id)
+            def call(measure, _retries, _run_id)
               @call_count += 1
               measure.call { nil }
               true
@@ -244,7 +292,7 @@ module En57
               @setup_called = true
             end
 
-            def call(measure, _run_id)
+            def call(measure, _retries, _run_id)
               measure.call { @call_measured = true }
               nil
             end
@@ -266,7 +314,7 @@ module En57
         assert_equal(8, scenario.runs)
         assert_equal(2, scenario.instance_variable_get(:@concurrency))
         assert_equal(3, scenario.instance_variable_get(:@batch_size))
-        scenario.run(->(&block) { block.call })
+        scenario.run(->(&block) { block.call }, -> {})
 
         assert_equal(true, scenario.instance_variable_get(:@call_measured))
       ensure
@@ -316,7 +364,7 @@ module En57
         assert_equal(7, scenario.runs)
         assert_equal(1, scenario.instance_variable_get(:@concurrency))
         assert_equal(100, scenario.instance_variable_get(:@batch_size))
-        scenario.run(->(&block) { block.call })
+        scenario.run(->(&block) { block.call }, -> {})
       ensure
         Scenario.definitions.replace(original_definitions)
       end
@@ -334,7 +382,7 @@ module En57
               @setup_database_url = database_url
             end
 
-            def call(measure, _run_id)
+            def call(measure, _retries, _run_id)
               measure.call { @called = true }
             end
           end
@@ -358,7 +406,7 @@ module En57
           "postgres://example",
           scenario.instance_variable_get(:@setup_database_url),
         )
-        scenario.run(->(&block) { block.call })
+        scenario.run(->(&block) { block.call }, -> {})
 
         assert_equal(true, scenario.instance_variable_get(:@called))
       ensure
@@ -396,8 +444,7 @@ module En57
             batch_size: 1,
           )
 
-        assert_equal(0, scenario.retry_count)
-        scenario.run(->(&block) { block.call })
+        scenario.run(->(&block) { block.call }, -> {})
       end
 
       def test_scenario_runs_when_no_measured_runs
@@ -411,7 +458,7 @@ module En57
             batch_size: 1,
           )
 
-        scenario.run(->(&block) { block.call })
+        scenario.run(->(&block) { block.call }, -> {})
       end
 
       def test_scenario_define_yields_run_id_to_call
@@ -421,7 +468,11 @@ module En57
           Scenario.define(
             database_instance: "defined-run-id",
             name: "Defined run ID",
-          ) { define_method(:call) { |_measure, run_id| run_ids << run_id } }
+          ) do
+            define_method(:call) do |_measure, _retries, run_id|
+              run_ids << run_id
+            end
+          end
         scenario =
           scenario_class.build(
             database_url: "postgres://example",
@@ -429,7 +480,7 @@ module En57
             runs: 2,
           )
 
-        scenario.run(->(&block) { block.call })
+        scenario.run(->(&block) { block.call }, -> {})
 
         assert_equal(3, run_ids.size)
         assert_equal(3, run_ids.uniq.size)
@@ -455,13 +506,13 @@ module En57
                 )
               end
 
-              def call(_measure, run_id)
+              def call(_measure, _retries, run_id)
                 @run_ids << run_id
               end
             end
             .new(run_ids)
 
-        scenario.run(->(&block) { block.call })
+        scenario.run(->(&block) { block.call }, -> {})
 
         assert_equal(3, run_ids.size)
         assert_equal(3, run_ids.uniq.size)
@@ -469,6 +520,7 @@ module En57
       end
 
       def test_scenario_counts_retries_after_warmup
+        retry_count = Concurrent::AtomicFixnum.new
         scenario =
           Class
             .new(Scenario) do
@@ -483,16 +535,16 @@ module En57
                 )
               end
 
-              def call(_measure, _run_id)
-                record_retry
+              def call(_measure, retries, _run_id)
+                retries.call
                 true
               end
             end
             .new
 
-        scenario.run(->(&block) { block.call })
+        scenario.run(->(&block) { block.call }, -> { retry_count.increment })
 
-        assert_equal(2, scenario.retry_count)
+        assert_equal(2, retry_count.value)
       end
 
       def test_scenario_runs_blocks_concurrently
@@ -516,7 +568,7 @@ module En57
                 )
               end
 
-              def call(_measure, _run_id)
+              def call(_measure, _retries, _run_id)
                 concurrently do |writer_id, barrier|
                   @barriers << barrier
                   @writer_ids << writer_id
@@ -527,7 +579,7 @@ module En57
             end
             .new(calls, barriers, writer_ids)
 
-        scenario.run(->(&block) { block.call })
+        scenario.run(->(&block) { block.call }, -> {})
 
         assert_equal(2, calls.value)
         assert_equal(1, 2.times.map { barriers.pop }.uniq.size)

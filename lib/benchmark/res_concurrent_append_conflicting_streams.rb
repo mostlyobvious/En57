@@ -16,7 +16,7 @@ module En57
         @event_store = RailsEventStore::JSONClient.new
       end
 
-      def call(measure, run_id)
+      def call(measure, retries, _run_id)
         concurrently do |_writer_id, barrier|
           stream_name = "writer:#{run_id}"
           events =
@@ -34,7 +34,7 @@ module En57
             begin
               @event_store.append(events, stream_name:, expected_version:)
             rescue RubyEventStore::WrongExpectedEventVersion
-              record_retry
+              retries.call
               expected_version = @event_store.read.stream(stream_name).count - 1
               retry
             end

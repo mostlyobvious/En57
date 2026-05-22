@@ -14,7 +14,7 @@ module En57
           EventStore.for_pooled_pg(database_url, max_connections: @concurrency)
       end
 
-      def call(measure, run_id)
+      def call(measure, retries, run_id)
         scope =
           @event_store
             .read
@@ -26,7 +26,7 @@ module En57
           begin
             @event_store.append(events, fail_if: scope.after(position = 0))
           rescue AppendConditionViolated
-            record_retry
+            retries.call
             retry
           end
         end

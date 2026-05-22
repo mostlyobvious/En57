@@ -17,7 +17,7 @@ module En57
             )
         end
 
-        def call(measure, _run_id)
+        def call(measure, retries, _run_id)
           concurrently do |writer_id, barrier|
             scope =
               @event_store
@@ -31,7 +31,7 @@ module En57
               begin
                 @event_store.append(events, fail_if: scope.after(position = 0))
               rescue AppendConditionViolated
-                record_retry
+                retries.call
                 retry
               end
             end
