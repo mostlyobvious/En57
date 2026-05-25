@@ -97,15 +97,20 @@ module En57
     end
 
     def test_append_passes_fail_if_and_after_conditions
+      expected_events =
+        array_encoder.encode(
+          [record_encoder.encode([ids[0], "OrderPaid", nil, nil, "{}"])],
+        )
+
       with_connection do |connection|
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(
           :exec_params,
-          [{ "status" => "success", "position" => nil }],
+          success_result,
           [
             "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [
-              array_encoder.encode([]),
+              expected_events,
               '{"fail_if_events_match":[{"types":["OrderPlaced"],"after":42}]}',
             ],
           ],
@@ -113,12 +118,12 @@ module En57
         connection.expect(:exec, nil, ["COMMIT"])
 
         assert_equal(
-          Success.new(position: nil),
+          Success.new(position: 1),
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
           ).append(
-            [],
+            [Event.new(id: ids[0], type: "OrderPaid")],
             fail_if:
               Query.new(
                 criteria: [
@@ -134,6 +139,18 @@ module En57
       end
     end
 
+    def test_append_short_circuits_empty_event_set
+      with_connection do |connection|
+        assert_equal(
+          Success.new(position: nil),
+          Repository.new(
+            PgAdapter.for_connection(connection),
+            JsonSerializer.new,
+          ).append([], fail_if: fail_if_with_criteria),
+        )
+      end
+    end
+
     def test_append_rolls_back_transaction_on_pg_failure
       with_connection do |connection|
         connection.expect(:exec, nil, ["BEGIN"])
@@ -142,7 +159,10 @@ module En57
             "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)",
             sql,
           )
-          assert_equal([array_encoder.encode([]), "{}"], params)
+          assert_equal(
+            [array_encoder.encode(append_event_records), "{}"],
+            params,
+          )
           raise PG::Error, "boom"
         end
         connection.expect(:exec, nil, ["ROLLBACK"])
@@ -151,7 +171,7 @@ module En57
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
-          ).append([], fail_if: Query.all)
+          ).append(append_events, fail_if: Query.all)
         end
       end
     end
@@ -166,7 +186,7 @@ module En57
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
-          ).append([], fail_if: Query.all)
+          ).append(append_events, fail_if: Query.all)
         end
       end
     end
@@ -527,7 +547,7 @@ module En57
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
-          ).append([], fail_if: fail_if_with_criteria),
+          ).append(append_events, fail_if: fail_if_with_criteria),
         )
       end
     end
@@ -548,7 +568,7 @@ module En57
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
-          ).append([], fail_if: fail_if_with_criteria),
+          ).append(append_events, fail_if: fail_if_with_criteria),
         )
       end
     end
@@ -570,7 +590,7 @@ module En57
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
-          ).append([], fail_if: fail_if_with_criteria)
+          ).append(append_events, fail_if: fail_if_with_criteria)
         end
         assert_equal(10, attempts)
       end
@@ -600,7 +620,7 @@ module En57
               Repository.new(
                 PgAdapter.for_connection(connection),
                 JsonSerializer.new,
-              ).append([], fail_if: fail_if_with_criteria)
+              ).append(append_events, fail_if: fail_if_with_criteria)
             end
             assert_equal(2, attempts)
           end
@@ -626,11 +646,17 @@ module En57
 
     def failure_result = [{ "status" => "append_condition_violated" }]
 
+    def append_events = [Event.new(id: ids[0], type: "OrderPaid")]
+
+    def append_event_records
+      [record_encoder.encode([ids[0], "OrderPaid", nil, nil, "{}"])]
+    end
+
     def append_args
       [
         "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)",
         [
-          array_encoder.encode([]),
+          array_encoder.encode(append_event_records),
           '{"fail_if_events_match":[{"types":["OrderPlaced"]}]}',
         ],
       ]
