@@ -36,7 +36,7 @@ module En57
           :exec_params,
           success_result,
           [
-            "SELECT status FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [expected_events, "{}"],
           ],
         )
@@ -80,7 +80,7 @@ module En57
           :exec_params,
           success_result,
           [
-            "SELECT status FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [expected_events, "{}"],
           ],
         )
@@ -101,9 +101,9 @@ module En57
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(
           :exec_params,
-          success_result,
+          [{ "status" => "success", "position" => nil }],
           [
-            "SELECT status FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [
               array_encoder.encode([]),
               '{"fail_if_events_match":[{"types":["OrderPlaced"],"after":42}]}',
@@ -112,21 +112,24 @@ module En57
         )
         connection.expect(:exec, nil, ["COMMIT"])
 
-        Repository.new(
-          PgAdapter.for_connection(connection),
-          JsonSerializer.new,
-        ).append(
-          [],
-          fail_if:
-            Query.new(
-              criteria: [
-                Query::Criteria.new(
-                  types: ["OrderPlaced"],
-                  tags: [],
-                  after: 42,
-                ),
-              ],
-            ),
+        assert_equal(
+          Success.new(position: nil),
+          Repository.new(
+            PgAdapter.for_connection(connection),
+            JsonSerializer.new,
+          ).append(
+            [],
+            fail_if:
+              Query.new(
+                criteria: [
+                  Query::Criteria.new(
+                    types: ["OrderPlaced"],
+                    tags: [],
+                    after: 42,
+                  ),
+                ],
+              ),
+          ),
         )
       end
     end
@@ -136,7 +139,7 @@ module En57
         connection.expect(:exec, nil, ["BEGIN"])
         connection.expect(:exec_params, nil) do |sql, params|
           assert_equal(
-            "SELECT status FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)",
             sql,
           )
           assert_equal([array_encoder.encode([]), "{}"], params)
@@ -541,7 +544,7 @@ module En57
         connection.expect(:exec, nil, ["COMMIT"])
 
         assert_equal(
-          Success.new,
+          Success.new(position: 1),
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
@@ -619,13 +622,13 @@ module En57
 
     def record_encoder = @record_encoder ||= PG::TextEncoder::Record.new
 
-    def success_result = [{ "status" => "success" }]
+    def success_result = [{ "status" => "success", "position" => "1" }]
 
     def failure_result = [{ "status" => "append_condition_violated" }]
 
     def append_args
       [
-        "SELECT status FROM en57.append_events($1::en57.event[], $2::jsonb)",
+        "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)",
         [
           array_encoder.encode([]),
           '{"fail_if_events_match":[{"types":["OrderPlaced"]}]}',

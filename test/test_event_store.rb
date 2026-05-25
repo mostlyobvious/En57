@@ -10,7 +10,12 @@ module En57
       event = Event.new(type: "CreditsToppedUp")
 
       with_repository do |repository|
-        repository.expect(:append, Success.new, [[event]], fail_if: Query.all)
+        repository.expect(
+          :append,
+          Success.new(position: 1),
+          [[event]],
+          fail_if: Query.all,
+        )
 
         EventStore.new(repository).append([event])
       end
@@ -33,9 +38,17 @@ module En57
       event = Event.new(type: "CreditsToppedUp")
 
       with_repository do |repository|
-        repository.expect(:append, Success.new, [[event]], fail_if: Query.all)
+        repository.expect(
+          :append,
+          Success.new(position: 1),
+          [[event]],
+          fail_if: Query.all,
+        )
 
-        assert_equal(Success.new, EventStore.new(repository).append([event]))
+        assert_equal(
+          Success.new(position: 1),
+          EventStore.new(repository).append([event]),
+        )
       end
     end
 
@@ -47,7 +60,7 @@ module En57
         fail_if = event_store.read.with_tag("order_id:123")
         repository.expect(
           :append,
-          Success.new,
+          Success.new(position: 1),
           [[event]],
           fail_if: fail_if.to_query,
         )

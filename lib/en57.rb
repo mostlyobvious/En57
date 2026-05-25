@@ -14,7 +14,7 @@ require_relative "en57/event_store"
 require_relative "en57/configuration"
 
 module En57
-  Success = Data.define
+  Success = Data.define(:position)
   Failure = Data.define
   AppendRetriesExhausted = Class.new(StandardError)
 

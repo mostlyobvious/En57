@@ -33,7 +33,7 @@ module En57
       ] = fail_if_events_match unless fail_if_events_match.empty?
 
       statement =
-        "SELECT status FROM en57.append_events($1::en57.event[], $2::jsonb)"
+        "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)"
       params = [
         @array_encoder.encode(event_records),
         JSON.generate(append_condition),
@@ -54,7 +54,7 @@ module En57
 
         case row.first.fetch("status")
         when "success"
-          Success.new
+          Success.new(position: row.first.fetch("position")&.then { Integer(it) })
         when "append_condition_violated"
           Failure.new
         end

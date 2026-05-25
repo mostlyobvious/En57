@@ -44,7 +44,7 @@ module En57
     def assert_round_trip(event_store)
       event = Event.new(type: "FactoryTested")
 
-      assert_equal Success.new, event_store.append([event])
+      assert_equal Success.new(position: 1), event_store.append([event])
       assert_equal [event], event_store.read.each.to_a
     end
   end
