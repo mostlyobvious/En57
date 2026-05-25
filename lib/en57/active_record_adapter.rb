@@ -19,6 +19,8 @@ module En57
     def with_serializable_transaction(&block) =
       run_transaction({ isolation: :serializable }, &block)
 
+    def serialization_error = ActiveRecord::SerializationFailure
+
     private
 
     def run_transaction(options)

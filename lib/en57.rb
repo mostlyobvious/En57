@@ -14,7 +14,9 @@ require_relative "en57/event_store"
 require_relative "en57/configuration"
 
 module En57
-  AppendConditionViolated = Class.new(StandardError)
+  Success = Data.define
+  Failure = Data.define
+  SerializationError = Class.new(StandardError)
 
   def self.configuration = Configuration.instance
 

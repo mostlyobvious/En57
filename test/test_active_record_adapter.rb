@@ -48,6 +48,13 @@ module En57
       end
     end
 
+    def test_serialization_error_returns_active_record_serialization_failure
+      with_mock_adapter do |_pool, _connection, _raw_connection, adapter|
+        assert_same ActiveRecord::SerializationFailure,
+                    adapter.serialization_error
+      end
+    end
+
     def test_with_serializable_transaction_reraises_block_errors
       error = RuntimeError.new("boom")
 

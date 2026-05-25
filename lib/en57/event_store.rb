@@ -8,7 +8,6 @@ module En57
 
     def append(events, fail_if: EmptyScope.new)
       @repository.append(events, fail_if: fail_if.to_query)
-      self
     end
 
     def read

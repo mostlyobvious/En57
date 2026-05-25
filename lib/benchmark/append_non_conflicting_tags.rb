@@ -23,11 +23,13 @@ module En57
         events = @batch_size.times.map { Event.new(type:, tags:) }
 
         measure.call do
-          begin
-            @event_store.append(events, fail_if: scope.after(position = 0))
-          rescue AppendConditionViolated
-            retries.call
-            retry
+          loop do
+            case @event_store.append(events, fail_if: scope.after(position = 0))
+            in Success
+              break
+            in Failure
+              retries.call
+            end
           end
         end
       end

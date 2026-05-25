@@ -73,6 +73,12 @@ module En57
       end
     end
 
+    def test_serialization_error_returns_pg_serialization_failure
+      with_mock_adapter do |_database, _connection, adapter|
+        assert_same PG::TRSerializationFailure, adapter.serialization_error
+      end
+    end
+
     def test_with_transaction_synchronizes_inside_transaction
       with_mock_adapter do |database, connection, adapter|
         database.expect(:transaction, :committed) { |&block| block.call }

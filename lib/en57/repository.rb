@@ -32,23 +32,40 @@ module En57
         :fail_if_events_match
       ] = fail_if_events_match unless fail_if_events_match.empty?
 
-      statement = "SELECT en57.append_events($1::en57.event[], $2::jsonb)"
+      statement =
+        "SELECT status FROM en57.append_events($1::en57.event[], $2::jsonb)"
       params = [
         @array_encoder.encode(event_records),
         JSON.generate(append_condition),
       ]
 
-      if fail_if_events_match.empty?
-        @adapter.with_transaction do |connection|
-          connection.exec_params(statement, params)
+      attempts_remaining = 3
+      begin
+        row =
+          if fail_if_events_match.empty?
+            @adapter.with_transaction do |connection|
+              connection.exec_params(statement, params)
+            end
+          else
+            @adapter.with_serializable_transaction do |connection|
+              connection.exec_params(statement, params)
+            end
+          end
+
+        case row.first.fetch("status")
+        when "success"
+          Success.new
+        when "append_condition_violated"
+          Failure.new
         end
-      else
-        @adapter.with_serializable_transaction do |connection|
-          connection.exec_params(statement, params)
+      rescue @adapter.serialization_error
+        if attempts_remaining.positive?
+          attempts_remaining -= 1
+          retry
         end
+
+        raise SerializationError
       end
-    rescue PG::RaiseException, PG::TRSerializationFailure
-      raise AppendConditionViolated
     end
 
     def read(query)

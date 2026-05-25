@@ -109,18 +109,21 @@ Example: consume credits only once per account.
 ```ruby
 account_scope = event_store.read.with_tag("account:x")
 
-begin
-  event_store.append(
-    [
-      En57::Event.new(
-        type: "CreditsUsed",
-        data: { amount: 100 },
-        tags: ["account:x"],
-      ),
-    ],
-    fail_if: account_scope.of_type("CreditsUsed"),
-  )
-rescue En57::AppendConditionViolated
+result = event_store.append(
+  [
+    En57::Event.new(
+      type: "CreditsUsed",
+      data: { amount: 100 },
+      tags: ["account:x"],
+    ),
+  ],
+  fail_if: account_scope.of_type("CreditsUsed"),
+)
+
+case result
+in En57::Success
+  # credits consumed
+in En57::Failure
   # lost the race; another writer already consumed credits
 end
 ```
@@ -144,18 +147,21 @@ Example: ensure no event exists with this email tag before writing.
 ```ruby
 email_tag = "email:alice@example.com"
 
-begin
-  event_store.append(
-    [
-      En57::Event.new(
-        type: "UserRegistered",
-        data: { name: "Alice" },
-        tags: [email_tag],
-      ),
-    ],
-    fail_if: event_store.read.with_tag(email_tag),
-  )
-rescue En57::AppendConditionViolated
+result = event_store.append(
+  [
+    En57::Event.new(
+      type: "UserRegistered",
+      data: { name: "Alice" },
+      tags: [email_tag],
+    ),
+  ],
+  fail_if: event_store.read.with_tag(email_tag),
+)
+
+case result
+in En57::Success
+  # user registered
+in En57::Failure
   # email already used
 end
 ```

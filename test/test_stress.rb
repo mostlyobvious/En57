@@ -42,14 +42,16 @@ module En57
                   ],
                   fail_if: account_scope.of_type("CreditsUsed"),
                 )
-              rescue AppendConditionViolated => e
+              rescue SerializationError => e
                 e
               end
             end
 
+          results = threads.map(&:value)
+          assert_equal(1, results.select { Success === it }.size)
           assert_equal(
             (concurrency - 1),
-            threads.map(&:value).select { AppendConditionViolated === it }.size,
+            results.select { Failure === it || SerializationError === it }.size,
           )
           assert_equal(
             1,
