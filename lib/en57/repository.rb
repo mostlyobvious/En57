@@ -64,7 +64,7 @@ module En57
           retry
         end
 
-        raise SerializationError
+        raise AppendRetriesExhausted
       end
     end
 

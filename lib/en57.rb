@@ -16,7 +16,7 @@ require_relative "en57/configuration"
 module En57
   Success = Data.define
   Failure = Data.define
-  SerializationError = Class.new(StandardError)
+  AppendRetriesExhausted = Class.new(StandardError)
 
   def self.configuration = Configuration.instance
 
