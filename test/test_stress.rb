@@ -51,7 +51,9 @@ module En57
           assert_equal(1, results.select { Success === it }.size)
           assert_equal(
             (concurrency - 1),
-            results.select { Failure === it || AppendRetriesExhausted === it }.size,
+            results
+              .select { Failure === it || AppendRetriesExhausted === it }
+              .size,
           )
           assert_equal(
             1,
