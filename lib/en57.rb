@@ -15,7 +15,7 @@ require_relative "en57/configuration"
 
 module En57
   Success = Data.define(:position)
-  Failure = Data.define
+  Failure = Data.define(:position)
   AppendRetriesExhausted = Class.new(StandardError)
 
   def self.configuration = Configuration.instance

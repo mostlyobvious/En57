@@ -45,6 +45,7 @@ DECLARE
     req_tags text[];
     req_after bigint;
     appended_position bigint;
+    matched_position bigint;
 BEGIN
     FOREACH criterion IN ARRAY criteria LOOP
         req_after := (criterion ->> 'after')::bigint;
@@ -54,43 +55,43 @@ BEGIN
         req_tags := ARRAY ( SELECT DISTINCT
                 jsonb_array_elements_text(COALESCE(criterion -> 'tags', '[]'::jsonb)));
         IF cardinality(req_tags) > 0 THEN
-            IF EXISTS (
-                SELECT
-                    1
-                FROM (
-                    SELECT
-                        t.event_id
-                    FROM
-                        en57.tags AS t
-                    WHERE
-                        t.value = ANY (req_tags)
-                    GROUP BY
-                        t.event_id
-                    HAVING
-                        count(*) = cardinality(req_tags)) AS matched
-                    JOIN en57.events AS e ON e.id = matched.event_id
-                WHERE (req_after IS NULL
-                    OR e.position > req_after)
-                AND (criterion -> 'types' IS NULL
-                    OR e.type = ANY (req_types))) THEN
-        RETURN ROW ('append_condition_violated',
-            NULL)::en57.append_result;
-        END IF;
-    ELSE
-        IF EXISTS (
             SELECT
-                1
+                max(e.position)
+            FROM (
+                SELECT
+                    t.event_id
+                FROM
+                    en57.tags AS t
+                WHERE
+                    t.value = ANY (req_tags)
+                GROUP BY
+                    t.event_id
+                HAVING
+                    count(*) = cardinality(req_tags)) AS matched
+            JOIN en57.events AS e ON e.id = matched.event_id
+        WHERE (req_after IS NULL
+                OR e.position > req_after)
+                AND (criterion -> 'types' IS NULL
+                    OR e.type = ANY (req_types))
+            INTO
+                matched_position;
+        ELSE
+            SELECT
+                max(e.position)
             FROM
                 en57.events AS e
             WHERE (req_after IS NULL
                 OR e.position > req_after)
-            AND (criterion -> 'types' IS NULL
-                OR e.type = ANY (req_types))) THEN
-    RETURN ROW ('append_condition_violated',
-        NULL)::en57.append_result;
-    END IF;
-END IF;
-END LOOP;
+                AND (criterion -> 'types' IS NULL
+                    OR e.type = ANY (req_types))
+            INTO
+                matched_position;
+        END IF;
+        IF matched_position IS NOT NULL THEN
+            RETURN ROW ('append_condition_violated',
+                matched_position)::en57.append_result;
+        END IF;
+    END LOOP;
     WITH inserted_events AS (
 INSERT INTO en57.events (id, type, data, meta)
         SELECT

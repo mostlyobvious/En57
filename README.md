@@ -123,8 +123,8 @@ result = event_store.append(
 case result
 in En57::Success(position:)
   # credits consumed at event position
-in En57::Failure
-  # lost the race; another writer already consumed credits
+in En57::Failure(position:)
+  # lost the race; another writer already consumed credits at position
 end
 ```
 
@@ -161,7 +161,7 @@ result = event_store.append(
 case result
 in En57::Success(position:)
   # user registered at event position
-in En57::Failure
-  # email already used
+in En57::Failure(position:)
+  # email already used at event position
 end
 ```

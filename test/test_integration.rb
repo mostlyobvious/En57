@@ -68,7 +68,7 @@ module En57
           )
 
           assert_equal(
-            Failure.new,
+            Failure.new(position: 1),
             event_store.append(
               [Event.new(id: ids[1], type: "ShipmentScheduled")],
               fail_if: event_store.read.of_type("OrderPlaced"),
@@ -110,7 +110,7 @@ module En57
           )
 
           assert_equal(
-            Failure.new,
+            Failure.new(position: 1),
             event_store.append(
               [Event.new(id: ids[1], type: "ShipmentScheduled")],
               fail_if: event_store.read.of_type("OrderPlaced").after(0),
