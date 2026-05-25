@@ -543,7 +543,7 @@ module En57
         connection.expect(:exec, nil, ["COMMIT"])
 
         assert_equal(
-          Failure.new,
+          Failure.new(position: 3),
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
@@ -644,7 +644,8 @@ module En57
 
     def success_result = [{ "status" => "success", "position" => "1" }]
 
-    def failure_result = [{ "status" => "append_condition_violated" }]
+    def failure_result =
+      [{ "status" => "append_condition_violated", "position" => "3" }]
 
     def append_events = [Event.new(id: ids[0], type: "OrderPaid")]
 
