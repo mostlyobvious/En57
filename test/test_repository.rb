@@ -563,7 +563,7 @@ module En57
           connection.expect(:exec, nil, ["ROLLBACK"])
         end
 
-        assert_raises(SerializationError) do
+        assert_raises(AppendRetriesExhausted) do
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,

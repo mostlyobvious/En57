@@ -42,7 +42,7 @@ module En57
                   ],
                   fail_if: account_scope.of_type("CreditsUsed"),
                 )
-              rescue SerializationError => e
+              rescue AppendRetriesExhausted => e
                 e
               end
             end
@@ -51,7 +51,7 @@ module En57
           assert_equal(1, results.select { Success === it }.size)
           assert_equal(
             (concurrency - 1),
-            results.select { Failure === it || SerializationError === it }.size,
+            results.select { Failure === it || AppendRetriesExhausted === it }.size,
           )
           assert_equal(
             1,
