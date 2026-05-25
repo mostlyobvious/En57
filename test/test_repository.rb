@@ -550,11 +550,11 @@ module En57
       end
     end
 
-    def test_append_raises_serialization_error_after_four_attempts
+    def test_append_raises_serialization_error_after_default_retries
       attempts = 0
 
       with_connection do |connection|
-        4.times do
+        10.times do
           connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
           connection.expect(:exec_params, nil) do
             attempts += 1
@@ -569,8 +569,39 @@ module En57
             JsonSerializer.new,
           ).append([], fail_if: fail_if_with_criteria)
         end
-        assert_equal(4, attempts)
+        assert_equal(10, attempts)
       end
+    end
+
+    def test_append_raises_serialization_error_after_configured_retries
+      attempts = 0
+
+      En57
+        .configuration
+        .stub(:append_retries, 1) do
+          with_connection do |connection|
+            2.times do
+              connection.expect(
+                :exec,
+                nil,
+                ["BEGIN ISOLATION LEVEL SERIALIZABLE"],
+              )
+              connection.expect(:exec_params, nil) do
+                attempts += 1
+                raise PG::TRSerializationFailure.new
+              end
+              connection.expect(:exec, nil, ["ROLLBACK"])
+            end
+
+            assert_raises(AppendRetriesExhausted) do
+              Repository.new(
+                PgAdapter.for_connection(connection),
+                JsonSerializer.new,
+              ).append([], fail_if: fail_if_with_criteria)
+            end
+            assert_equal(2, attempts)
+          end
+        end
     end
 
     private

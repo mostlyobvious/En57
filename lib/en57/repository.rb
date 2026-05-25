@@ -39,7 +39,7 @@ module En57
         JSON.generate(append_condition),
       ]
 
-      attempts_remaining = 3
+      attempts_remaining = En57.configuration.append_retries
       begin
         row =
           if fail_if_events_match.empty?

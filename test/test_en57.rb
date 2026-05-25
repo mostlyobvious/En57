@@ -24,6 +24,10 @@ module En57
       RUBY
     end
 
+    def test_configuration_default_append_retries
+      assert_equal 9, En57.configuration.append_retries
+    end
+
     def test_configuration_default_serializer
       assert_kind_of JsonSerializer, En57.configuration.serializer
     end
@@ -31,8 +35,12 @@ module En57
     def test_configure
       with_empty_configuration do
         serializer = Object.new
-        En57.configure { |c| c.serializer = serializer }
+        En57.configure do |c|
+          c.append_retries = 2
+          c.serializer = serializer
+        end
 
+        assert_equal 2, En57.configuration.append_retries
         assert_equal serializer, En57.configuration.serializer
       end
     end
