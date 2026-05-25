@@ -27,7 +27,8 @@ CREATE TYPE en57.event AS (
 );
 
 CREATE TYPE en57.append_result AS (
-    status text
+    status text,
+    "position" bigint
 );
 
 CREATE FUNCTION en57.append_events (new_events en57.event[], append_condition jsonb DEFAULT '{}'::jsonb)
@@ -43,6 +44,7 @@ DECLARE
     req_types text[];
     req_tags text[];
     req_after bigint;
+    appended_position bigint;
 BEGIN
     FOREACH criterion IN ARRAY criteria LOOP
         req_after := (criterion ->> 'after')::bigint;
@@ -71,7 +73,8 @@ BEGIN
                     OR e.position > req_after)
                 AND (criterion -> 'types' IS NULL
                     OR e.type = ANY (req_types))) THEN
-        RETURN ROW ('append_condition_violated')::en57.append_result;
+        RETURN ROW ('append_condition_violated',
+            NULL)::en57.append_result;
         END IF;
     ELSE
         IF EXISTS (
@@ -83,26 +86,38 @@ BEGIN
                 OR e.position > req_after)
             AND (criterion -> 'types' IS NULL
                 OR e.type = ANY (req_types))) THEN
-    RETURN ROW ('append_condition_violated')::en57.append_result;
+    RETURN ROW ('append_condition_violated',
+        NULL)::en57.append_result;
     END IF;
 END IF;
 END LOOP;
+    WITH inserted_events AS (
 INSERT INTO en57.events (id, type, data, meta)
-SELECT
-    e.id,
-    e.type,
-    e.data,
-    e.meta
-FROM
-    unnest(new_events) AS e;
-INSERT INTO en57.tags (event_id, value)
-SELECT
-    e.id,
-    t.value
-FROM
-    unnest(new_events) AS e
+        SELECT
+            e.id,
+            e.type,
+            e.data,
+            e.meta
+        FROM
+            unnest(new_events) AS e
+        RETURNING
+            "position"
+)
+    SELECT
+        max("position")
+    FROM
+        inserted_events
+    INTO
+        appended_position;
+    INSERT INTO en57.tags (event_id, value)
+    SELECT
+        e.id,
+        t.value
+    FROM
+        unnest(new_events) AS e
     CROSS JOIN LATERAL unnest(COALESCE(e.tags, ARRAY[]::text[])) AS t (value);
-    RETURN ROW ('success')::en57.append_result;
+    RETURN ROW ('success',
+        appended_position)::en57.append_result;
 END;
 $$;
 
