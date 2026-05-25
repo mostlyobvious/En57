@@ -16,7 +16,7 @@ module En57
         @event_store = RailsEventStore::JSONClient.new
       end
 
-      def call(measure, retries, _run_id)
+      def call(measure, retries, run_id)
         concurrently do |_writer_id, barrier|
           stream_name = "writer:#{run_id}"
           events =

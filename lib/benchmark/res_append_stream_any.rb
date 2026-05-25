@@ -17,7 +17,7 @@ module En57
         @event_store = RailsEventStore::JSONClient.new
       end
 
-      def call(measure, _retries, _run_id)
+      def call(measure, _retries, run_id)
         events =
           @batch_size.times.map do
             RubyEventStore::Event.new(
