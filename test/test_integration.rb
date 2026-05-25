@@ -24,7 +24,8 @@ module En57
             ),
           ]
 
-          assert_equal(events, event_store.append(events).read.each.to_a)
+          assert_equal(Success.new, event_store.append(events))
+          assert_equal(events, event_store.read.each.to_a)
         end
       end
 
@@ -35,9 +36,10 @@ module En57
             Event.new(id: ids[1], type: "PriceChanged"),
           ]
 
+          assert_equal(Success.new, event_store.append(events))
           assert_equal(
             events.map.with_index(1) { |event, position| [event, position] },
-            event_store.append(events).read.each_with_position.to_a,
+            event_store.read.each_with_position.to_a,
           )
         end
       end
@@ -45,26 +47,30 @@ module En57
       define_method "test_#{name}_append_with_fail_if_and_no_matches_appends_events" do
         with_event_store(factory) do |event_store|
           event = Event.new(id: ids[0], type: "OrderPlaced")
-          event_store.append(
-            [event],
-            fail_if: event_store.read.of_type("PriceChanged"),
+          assert_equal(
+            Success.new,
+            event_store.append(
+              [event],
+              fail_if: event_store.read.of_type("PriceChanged"),
+            ),
           )
 
           assert_equal([event], event_store.read.each.to_a)
         end
       end
 
-      define_method "test_#{name}_append_with_fail_if_and_matches_raises_append_condition_violated" do
+      define_method "test_#{name}_append_with_fail_if_and_matches_returns_failure" do
         with_event_store(factory) do |event_store|
           existing_event = Event.new(id: ids[0], type: "OrderPlaced")
-          event_store.append([existing_event])
+          assert_equal(Success.new, event_store.append([existing_event]))
 
-          assert_raises(AppendConditionViolated) do
+          assert_equal(
+            Failure.new,
             event_store.append(
               [Event.new(id: ids[1], type: "ShipmentScheduled")],
               fail_if: event_store.read.of_type("OrderPlaced"),
-            )
-          end
+            ),
+          )
 
           assert_equal([existing_event], event_store.read.each.to_a)
         end
@@ -73,10 +79,13 @@ module En57
       define_method "test_#{name}_append_with_after_ignores_matches_at_or_before_cutoff" do
         with_event_store(factory) do |event_store|
           existing_event = Event.new(id: ids[0], type: "OrderPlaced")
-          event_store.append([existing_event])
-          event_store.append(
-            [Event.new(id: ids[1], type: "ShipmentScheduled")],
-            fail_if: event_store.read.of_type("OrderPlaced").after(1),
+          assert_equal(Success.new, event_store.append([existing_event]))
+          assert_equal(
+            Success.new,
+            event_store.append(
+              [Event.new(id: ids[1], type: "ShipmentScheduled")],
+              fail_if: event_store.read.of_type("OrderPlaced").after(1),
+            ),
           )
 
           assert_equal(
@@ -86,17 +95,18 @@ module En57
         end
       end
 
-      define_method "test_#{name}_append_with_after_raises_if_match_is_after_cutoff" do
+      define_method "test_#{name}_append_with_after_returns_failure_if_match_is_after_cutoff" do
         with_event_store(factory) do |event_store|
           existing_event = Event.new(id: ids[0], type: "OrderPlaced")
-          event_store.append([existing_event])
+          assert_equal(Success.new, event_store.append([existing_event]))
 
-          assert_raises(AppendConditionViolated) do
+          assert_equal(
+            Failure.new,
             event_store.append(
               [Event.new(id: ids[1], type: "ShipmentScheduled")],
               fail_if: event_store.read.of_type("OrderPlaced").after(0),
-            )
-          end
+            ),
+          )
 
           assert_equal([existing_event], event_store.read.each.to_a)
         end
@@ -105,7 +115,7 @@ module En57
       define_method "test_#{name}_append_with_duplicate_id_raises_unique_violation" do
         with_event_store(factory) do |event_store|
           existing_event = Event.new(id: ids[0], type: "OrderPlaced")
-          event_store.append([existing_event])
+          assert_equal(Success.new, event_store.append([existing_event]))
 
           assert_raises(PG::UniqueViolation) do
             event_store.append(
@@ -122,7 +132,8 @@ module En57
           event =
             Event.new(id: ids[0], type: "OrderPlaced", tags: ["order_id:123"])
 
-          assert_equal([event], event_store.append([event]).read.each.to_a)
+          assert_equal(Success.new, event_store.append([event]))
+          assert_equal([event], event_store.read.each.to_a)
         end
       end
 
@@ -133,10 +144,8 @@ module En57
             Event.new(id: ids[1], type: "PriceChanged"),
           ]
 
-          assert_equal(
-            events.drop(1),
-            event_store.append(events).read.after(1).each.to_a,
-          )
+          assert_equal(Success.new, event_store.append(events))
+          assert_equal(events.drop(1), event_store.read.after(1).each.to_a)
         end
       end
 
@@ -155,10 +164,10 @@ module En57
             ),
           ]
 
+          assert_equal(Success.new, event_store.append(events))
           assert_equal(
             events.take(1),
             event_store
-              .append(events)
               .read
               .with_tag("order_id:123", "tenant_id:acme")
               .each
@@ -174,9 +183,10 @@ module En57
             Event.new(id: ids[1], type: "PriceChanged"),
           ]
 
+          assert_equal(Success.new, event_store.append(events))
           assert_equal(
             events.take(1),
-            event_store.append(events).read.of_type("OrderPlaced").each.to_a,
+            event_store.read.of_type("OrderPlaced").each.to_a,
           )
         end
       end
@@ -189,14 +199,10 @@ module En57
             Event.new(id: ids[2], type: "OrderCancelled"),
           ]
 
+          assert_equal(Success.new, event_store.append(events))
           assert_equal(
             events.drop(1),
-            event_store
-              .append(events)
-              .read
-              .of_type("OrderPlaced", "OrderCancelled")
-              .each
-              .to_a,
+            event_store.read.of_type("OrderPlaced", "OrderCancelled").each.to_a,
           )
         end
       end
@@ -209,10 +215,10 @@ module En57
             Event.new(id: ids[2], type: "PriceChanged", tags: ["order_id:123"]),
           ]
 
+          assert_equal(Success.new, event_store.append(events))
           assert_equal(
             events.take(1),
             event_store
-              .append(events)
               .read
               .of_type("OrderPlaced")
               .with_tag("order_id:123")
@@ -235,7 +241,7 @@ module En57
               tags: ["order_id:123"],
             ),
           ]
-          event_store.append(events)
+          assert_equal(Success.new, event_store.append(events))
 
           orders =
             event_store.read.of_type("OrderPlaced").with_tag("order_id:123")

@@ -24,14 +24,19 @@ module En57
           barrier.wait
 
           measure.call do
-            begin
-              @event_store.append(events, fail_if: scope.after(position = 0))
-            rescue AppendConditionViolated
-              retries.call
-              scope.each_with_position do |_event, event_position|
-                position = event_position
+            loop do
+              case @event_store.append(
+                events,
+                fail_if: scope.after(position = 0),
+              )
+              in Success
+                break
+              in Failure
+                retries.call
+                scope.each_with_position do |_event, event_position|
+                  position = event_position
+                end
               end
-              retry
             end
           end
         end

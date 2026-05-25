@@ -19,18 +19,22 @@ module En57
     def with_serializable_transaction(&block) =
       run_transaction("BEGIN ISOLATION LEVEL SERIALIZABLE", &block)
 
+    def serialization_error = PG::TRSerializationFailure
+
     private
 
     def run_transaction(begin_statement)
       with_connection do |connection|
         connection.exec(begin_statement)
-        begin
-          yield connection
-        rescue StandardError
-          connection.exec("ROLLBACK")
-          raise
-        end
+        result =
+          begin
+            yield connection
+          rescue StandardError
+            connection.exec("ROLLBACK")
+            raise
+          end
         connection.exec("COMMIT")
+        result
       end
     end
 

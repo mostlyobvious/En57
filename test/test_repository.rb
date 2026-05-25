@@ -34,9 +34,9 @@ module En57
         connection.expect(:exec, nil, ["BEGIN"])
         connection.expect(
           :exec_params,
-          nil,
+          success_result,
           [
-            "SELECT en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT status FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [expected_events, "{}"],
           ],
         )
@@ -78,9 +78,9 @@ module En57
         connection.expect(:exec, nil, ["BEGIN"])
         connection.expect(
           :exec_params,
-          nil,
+          success_result,
           [
-            "SELECT en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT status FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [expected_events, "{}"],
           ],
         )
@@ -101,9 +101,9 @@ module En57
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(
           :exec_params,
-          nil,
+          success_result,
           [
-            "SELECT en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT status FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [
               array_encoder.encode([]),
               '{"fail_if_events_match":[{"types":["OrderPlaced"],"after":42}]}',
@@ -134,15 +134,15 @@ module En57
     def test_append_rolls_back_transaction_on_pg_failure
       with_connection do |connection|
         connection.expect(:exec, nil, ["BEGIN"])
-        connection.expect(:exec, nil, ["ROLLBACK"])
         connection.expect(:exec_params, nil) do |sql, params|
           assert_equal(
-            "SELECT en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT status FROM en57.append_events($1::en57.event[], $2::jsonb)",
             sql,
           )
           assert_equal([array_encoder.encode([]), "{}"], params)
           raise PG::Error, "boom"
         end
+        connection.expect(:exec, nil, ["ROLLBACK"])
 
         assert_raises(PG::Error) do
           Repository.new(
@@ -156,8 +156,8 @@ module En57
     def test_append_rolls_back_transaction_on_failure
       with_connection do |connection|
         connection.expect(:exec, nil, ["BEGIN"])
-        connection.expect(:exec, nil, ["ROLLBACK"])
         connection.expect(:exec_params, nil) { raise RuntimeError, "boom" }
+        connection.expect(:exec, nil, ["ROLLBACK"])
 
         assert_raises(RuntimeError) do
           Repository.new(
@@ -513,35 +513,63 @@ module En57
       end
     end
 
-    def test_append_raises_append_condition_violated_from_pg_error_sqlstate
+    def test_append_returns_failure_when_sql_status_is_append_condition_violated
       with_connection do |connection|
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
-        connection.expect(:exec, nil, ["ROLLBACK"])
-        connection.expect(:exec_params, nil) { raise(PG::RaiseException.new) }
+        connection.expect(:exec_params, failure_result, append_args)
+        connection.expect(:exec, nil, ["COMMIT"])
 
-        assert_raises(AppendConditionViolated) do
+        assert_equal(
+          Failure.new,
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
-          ).append([], fail_if: fail_if_with_criteria)
-        end
+          ).append([], fail_if: fail_if_with_criteria),
+        )
       end
     end
 
-    def test_append_raises_append_condition_violated_from_serialization_failure_result_sqlstate
+    def test_append_retries_on_serialization_error_and_succeeds
       with_connection do |connection|
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
-        connection.expect(:exec, nil, ["ROLLBACK"])
         connection.expect(:exec_params, nil) do
           raise PG::TRSerializationFailure.new
         end
+        connection.expect(:exec, nil, ["ROLLBACK"])
+        connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
+        connection.expect(:exec_params, success_result, append_args)
+        connection.expect(:exec, nil, ["COMMIT"])
 
-        assert_raises(AppendConditionViolated) do
+        assert_equal(
+          Success.new,
+          Repository.new(
+            PgAdapter.for_connection(connection),
+            JsonSerializer.new,
+          ).append([], fail_if: fail_if_with_criteria),
+        )
+      end
+    end
+
+    def test_append_raises_serialization_error_after_four_attempts
+      attempts = 0
+
+      with_connection do |connection|
+        4.times do
+          connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
+          connection.expect(:exec_params, nil) do
+            attempts += 1
+            raise PG::TRSerializationFailure.new
+          end
+          connection.expect(:exec, nil, ["ROLLBACK"])
+        end
+
+        assert_raises(SerializationError) do
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
           ).append([], fail_if: fail_if_with_criteria)
         end
+        assert_equal(4, attempts)
       end
     end
 
@@ -559,6 +587,20 @@ module En57
     def array_encoder = @array_encoder ||= PG::TextEncoder::Array.new
 
     def record_encoder = @record_encoder ||= PG::TextEncoder::Record.new
+
+    def success_result = [{ "status" => "success" }]
+
+    def failure_result = [{ "status" => "append_condition_violated" }]
+
+    def append_args
+      [
+        "SELECT status FROM en57.append_events($1::en57.event[], $2::jsonb)",
+        [
+          array_encoder.encode([]),
+          '{"fail_if_events_match":[{"types":["OrderPlaced"]}]}',
+        ],
+      ]
+    end
 
     def fail_if_with_criteria
       Query.new(

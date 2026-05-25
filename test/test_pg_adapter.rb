@@ -24,6 +24,10 @@ module En57
       assert_same connection, adapter.with_connection { |conn| conn }
     end
 
+    def test_for_connection_returns_adapter
+      assert_instance_of(PgAdapter, PgAdapter.for_connection(Object.new))
+    end
+
     def test_for_connection_synchronizes_access
       connection = Object.new
       adapter = PgAdapter.for_connection(connection)
@@ -60,10 +64,12 @@ module En57
         )
         connection.expect(:exec, nil, ["COMMIT"])
 
-        adapter.with_serializable_transaction do |conn|
-          assert_equal :written,
-                       conn.exec_params("SELECT en57.append_events()", [])
-        end
+        assert_equal(
+          :written,
+          adapter.with_serializable_transaction do |conn|
+            conn.exec_params("SELECT en57.append_events()", [])
+          end,
+        )
       end
     end
 
@@ -94,6 +100,12 @@ module En57
       assert_same error, raised
     end
 
+    def test_serialization_error_returns_pg_serialization_failure
+      with_mock_adapter do |_connection, adapter|
+        assert_same PG::TRSerializationFailure, adapter.serialization_error
+      end
+    end
+
     def test_with_transaction_commits_on_success
       with_mock_adapter do |connection, adapter|
         connection.expect(:exec, nil, ["BEGIN"])
@@ -104,10 +116,12 @@ module En57
         )
         connection.expect(:exec, nil, ["COMMIT"])
 
-        adapter.with_transaction do |conn|
-          assert_equal :written,
-                       conn.exec_params("SELECT en57.append_events()", [])
-        end
+        assert_equal(
+          :written,
+          adapter.with_transaction do |conn|
+            conn.exec_params("SELECT en57.append_events()", [])
+          end,
+        )
       end
     end
 

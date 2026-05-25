@@ -55,7 +55,8 @@ module En57
             ),
           )
 
-        assert_equal [event], event_store.append([event]).read.each.to_a
+        assert_equal Success.new, event_store.append([event])
+        assert_equal [event], event_store.read.each.to_a
       ensure
         connection&.close
       end

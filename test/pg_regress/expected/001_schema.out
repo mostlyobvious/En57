@@ -26,8 +26,12 @@ CREATE TYPE en57.event AS (
     tags text[]
 );
 
+CREATE TYPE en57.append_result AS (
+    status text
+);
+
 CREATE FUNCTION en57.append_events (new_events en57.event[], append_condition jsonb DEFAULT '{}'::jsonb)
-    RETURNS void
+    RETURNS en57.append_result
     LANGUAGE plpgsql
     SET enable_seqscan = OFF
     AS $$
@@ -67,7 +71,7 @@ BEGIN
                     OR e.position > req_after)
                 AND (criterion -> 'types' IS NULL
                     OR e.type = ANY (req_types))) THEN
-        RAISE EXCEPTION 'append_condition_violated';
+        RETURN ROW ('append_condition_violated')::en57.append_result;
         END IF;
     ELSE
         IF EXISTS (
@@ -79,7 +83,7 @@ BEGIN
                 OR e.position > req_after)
             AND (criterion -> 'types' IS NULL
                 OR e.type = ANY (req_types))) THEN
-    RAISE EXCEPTION 'append_condition_violated';
+    RETURN ROW ('append_condition_violated')::en57.append_result;
     END IF;
 END IF;
 END LOOP;
@@ -98,6 +102,7 @@ SELECT
 FROM
     unnest(new_events) AS e
     CROSS JOIN LATERAL unnest(COALESCE(e.tags, ARRAY[]::text[])) AS t (value);
+    RETURN ROW ('success')::en57.append_result;
 END;
 $$;
 
