@@ -27,15 +27,13 @@ module En57
             events = @batch_size.times.map { Event.new(type:, tags:) }
             barrier.wait
 
+            position = 0
             measure.call do
               loop do
-                case @event_store.append(
-                  events,
-                  fail_if: scope.after(position = 0),
-                )
+                case @event_store.append(events, fail_if: scope.after(position))
                 in Success
                   break
-                in Failure
+                in Failure(position:)
                   retries.call
                 end
               end
