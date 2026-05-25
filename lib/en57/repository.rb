@@ -13,6 +13,8 @@ module En57
     end
 
     def append(events, fail_if:)
+      return Success.new(position: nil) if events.empty?
+
       event_records =
         events.map do |event|
           serialized, description = @serializer.dump(event.data)
@@ -54,7 +56,7 @@ module En57
 
         case row.first.fetch("status")
         when "success"
-          Success.new(position: row.first.fetch("position")&.then { Integer(it) })
+          Success.new(position: row.first.fetch("position").then { Integer(it) })
         when "append_condition_violated"
           Failure.new
         end
