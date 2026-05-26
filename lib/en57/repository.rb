@@ -56,9 +56,13 @@ module En57
 
         case row.first.fetch("status")
         when "success"
-          Success.new(position: row.first.fetch("position").then { Integer(it) })
+          Success.new(
+            position: row.first.fetch("position").then { Integer(it) },
+          )
         when "append_condition_violated"
-          Failure.new(position: row.first.fetch("position").then { Integer(it) })
+          Failure.new(
+            position: row.first.fetch("position").then { Integer(it) },
+          )
         end
       rescue @adapter.serialization_error
         if attempts_remaining.positive?
