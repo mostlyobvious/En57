@@ -29,7 +29,7 @@ module En57
               case @event_store.append(events, fail_if: scope.after(position))
               in Success
                 break
-              in Failure(position:)
+              in Failure[position:]
                 retries.call
               end
             end
