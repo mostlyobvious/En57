@@ -29,14 +29,7 @@ module En57
 
             position = 0
             measure.call do
-              loop do
-                case @event_store.append(events, fail_if: scope.after(position))
-                in Success
-                  break
-                in Failure(position:)
-                  retries.call
-                end
-              end
+              @event_store.append(events, fail_if: scope.after(position))
             end
           end
         end
