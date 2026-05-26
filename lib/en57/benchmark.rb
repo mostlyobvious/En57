@@ -256,6 +256,9 @@ module En57
       end
 
       def run
+        original_append_retries = En57.configuration.append_retries
+        En57.configuration.append_retries = 100
+
         results =
           @scenarios.map do |instance_name, mk_scenario|
             PgEphemeral.with_server(instance_name:) do |server|
@@ -283,6 +286,8 @@ module En57
           end
 
         @formatter.format(results)
+      ensure
+        En57.configuration.append_retries = original_append_retries
       end
     end
 

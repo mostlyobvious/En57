@@ -122,6 +122,47 @@ module En57
         assert_equal([3, 3], formatted_results.map(&:retry_count))
       end
 
+      def test_runner_sets_append_retries_during_benchmark
+        formatter = Object.new
+        formatter.define_singleton_method(:format) { |_results| "formatted" }
+        server = Data.define(:url).new("postgres://example")
+        append_retries = nil
+        original_append_retries = En57.configuration.append_retries
+        En57.configuration.append_retries = 7
+        scenario =
+          Class
+            .new do
+              def initialize(capture)
+                @capture = capture
+              end
+
+              def name = "scenario"
+              def runs = 1
+              def run(measure, _retries)
+                @capture.call(En57.configuration.append_retries)
+                measure.call { nil }
+              end
+            end
+            .new(->(value) { append_retries = value })
+
+        PgEphemeral.stub(
+          :with_server,
+          ->(instance_name:, &block) { block.call(server) },
+        ) do
+          Runner.new(
+            formatter:,
+            scenarios: {
+              "instance" => ->(_database_url, _warmup_runs) { scenario },
+            },
+          ).run
+        end
+
+        assert_equal(100, append_retries)
+        assert_equal(7, En57.configuration.append_retries)
+      ensure
+        En57.configuration.append_retries = original_append_retries
+      end
+
       def test_runner_uses_concurrent_array_for_samples
         formatter = Object.new
         formatted_results = nil
