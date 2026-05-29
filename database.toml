@@ -32,6 +32,10 @@ path = "db/schema/0.1.0.sql"
 type = "sql-file"
 path = "db/schema/0.1.0.sql"
 
+[instances.concurrent-append-no-fail-if-ar.seeds.schema]
+type = "sql-file"
+path = "db/schema/0.1.0.sql"
+
 [instances.concurrent-append-conflicting-tags.seeds.schema]
 type = "sql-file"
 path = "db/schema/0.1.0.sql"
