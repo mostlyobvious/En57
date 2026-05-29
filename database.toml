@@ -20,6 +20,10 @@ path = "db/seeds/concurrent_append_non_conflicting_tags_seeded.sql"
 type = "sql-file"
 path = "db/schema/0.1.0.sql"
 
+[instances.append-no-fail-if-ar.seeds.schema]
+type = "sql-file"
+path = "db/schema/0.1.0.sql"
+
 [instances.append-non-conflicting-tags.seeds.schema]
 type = "sql-file"
 path = "db/schema/0.1.0.sql"
@@ -43,4 +47,3 @@ path = "db/seeds/res.sql"
 [instances.res-concurrent-append-conflicting-streams.seeds.schema]
 type = "sql-file"
 path = "db/seeds/res.sql"
-
