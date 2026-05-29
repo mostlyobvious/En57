@@ -12,7 +12,10 @@ module En57
         require "active_record"
         require "rails_event_store"
 
-        ActiveRecord::Base.establish_connection(database_url)
+        ActiveRecord::Base.establish_connection(
+          url: database_url,
+          pool: @concurrency,
+        )
         @event_store = RailsEventStore::JSONClient.new
       end
 
