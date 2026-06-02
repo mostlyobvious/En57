@@ -108,7 +108,7 @@ GEM
       prism (>= 1.3.0)
       rdoc (>= 4.0.0)
       reline (>= 0.4.2)
-    json (2.19.5)
+    json (2.19.7)
     logger (1.7.0)
     loofah (2.25.1)
       crass (~> 1.0.2)
@@ -164,18 +164,18 @@ GEM
     pg (1.6.3-aarch64-linux)
     pg (1.6.3-arm64-darwin)
     pg (1.6.3-x86_64-linux)
-    pg-ephemeral (0.4.0-aarch64-linux)
+    pg-ephemeral (0.5.1-aarch64-linux)
       pg (~> 1.5)
-    pg-ephemeral (0.4.0-arm64-darwin)
+    pg-ephemeral (0.5.1-arm64-darwin)
       pg (~> 1.5)
-    pg-ephemeral (0.4.0-x86_64-linux)
+    pg-ephemeral (0.5.1-x86_64-linux)
       pg (~> 1.5)
     pp (0.6.3)
       prettyprint
     prettier_print (1.2.1)
     prettyprint (0.2.0)
     prism (1.9.0)
-    psych (5.3.1)
+    psych (5.4.0)
       date
       stringio
     racc (1.8.1)
@@ -245,9 +245,9 @@ GEM
       rack
       ruby_event_store (= 2.19.2)
     securerandom (0.4.1)
-    sequel (5.104.0)
+    sequel (5.105.0)
       bigdecimal
-    sorbet-runtime (0.6.13222)
+    sorbet-runtime (0.6.13270)
     stringio (3.2.0)
     syntax_tree (6.3.0)
       prettier_print (>= 1.2.0)
@@ -266,7 +266,7 @@ GEM
       base64
       websocket-extensions (>= 0.1.0)
     websocket-extensions (0.1.5)
-    zeitwerk (2.8.1)
+    zeitwerk (2.8.2)
 
 PLATFORMS
   aarch64-linux
@@ -327,7 +327,7 @@ CHECKSUMS
   i18n (1.14.8) sha256=285778639134865c5e0f6269e0b818256017e8cde89993fdfcbfb64d088824a5
   io-console (0.8.2) sha256=d6e3ae7a7cc7574f4b8893b4fca2162e57a825b223a177b7afa236c5ef9814cc
   irb (1.18.0) sha256=de9454a0703a54704b9811a5ef31a60c86949fbf4013fcf244fabc7c775248e3
-  json (2.19.5) sha256=218a18553e4801d579ca7e0f5bc72bafd776d7397238a1fb4e74db5b0a812c59
+  json (2.19.7) sha256=fe432c8639f6efff69f9d73b518a3705d9581ab93156f981ea72806e1e5bcc3e
   logger (1.7.0) sha256=196edec7cc44b66cfb40f9755ce11b392f21f7967696af15d274dde7edff0203
   loofah (2.25.1) sha256=d436c73dbd0c1147b16c4a41db097942d217303e1f7728704b37e4df9f6d2e04
   m (1.7.0) sha256=058f793da8150c51353cc59366ffae7774683e868bede3c78f81d920fb9d633a
@@ -353,14 +353,14 @@ CHECKSUMS
   pg (1.6.3-aarch64-linux) sha256=0698ad563e02383c27510b76bf7d4cd2de19cd1d16a5013f375dd473e4be72ea
   pg (1.6.3-arm64-darwin) sha256=7240330b572e6355d7c75a7de535edb5dfcbd6295d9c7777df4d9dddfb8c0e5f
   pg (1.6.3-x86_64-linux) sha256=5d9e188c8f7a0295d162b7b88a768d8452a899977d44f3274d1946d67920ae8d
-  pg-ephemeral (0.4.0-aarch64-linux) sha256=112c0d15b403ffe4c725ca255bc43719bb117f2e8a9a0ff098d8f74f139558ba
-  pg-ephemeral (0.4.0-arm64-darwin) sha256=c420d23da232f57adde758d817b33d9ae20a2edf8eb92560086d7addb035ad92
-  pg-ephemeral (0.4.0-x86_64-linux) sha256=de162e18bad33203de3485b94f671d489942609fc0ac87c077882cb9aeac11a5
+  pg-ephemeral (0.5.1-aarch64-linux) sha256=109ede089c1a5ef2d5ef80e8a1a8d7e4741a827948a1e7c3ae44c37f27fe6dbe
+  pg-ephemeral (0.5.1-arm64-darwin) sha256=b254bacea36f1fd9b9690f95d141c16716684beccae7ffd0a23df4477b4cf512
+  pg-ephemeral (0.5.1-x86_64-linux) sha256=4c7a867df7e88abd5d8a5e816b0f633043c181017ccc6cde90b4be2087361129
   pp (0.6.3) sha256=2951d514450b93ccfeb1df7d021cae0da16e0a7f95ee1e2273719669d0ab9df6
   prettier_print (1.2.1) sha256=a72838b5f23facff21f90a5423cdcdda19e4271092b41f4ea7f50b83929e6ff9
   prettyprint (0.2.0) sha256=2bc9e15581a94742064a3cc8b0fb9d45aae3d03a1baa6ef80922627a0766f193
   prism (1.9.0) sha256=7b530c6a9f92c24300014919c9dcbc055bf4cdf51ec30aed099b06cd6674ef85
-  psych (5.3.1) sha256=eb7a57cef10c9d70173ff74e739d843ac3b2c019a003de48447b2963d81b1974
+  psych (5.4.0) sha256=14f72d69a611af663d7d70e4a7b67d9eb1f3ae9f8d916b478961d5a0075ba5b7
   racc (1.8.1) sha256=4a7f6929691dbec8b5209a0b373bc2614882b55fc5d2e447a21aaa691303d62f
   rack (3.2.6) sha256=5ed78e1f73b2e25679bec7d45ee2d4483cc4146eb1be0264fc4d94cb5ef212c2
   rack-session (2.1.2) sha256=595434f8c0c3473ae7d7ac56ecda6cc6dfd9d37c0b2b5255330aa1576967ffe8
@@ -380,8 +380,8 @@ CHECKSUMS
   ruby_event_store-active_record (2.19.2) sha256=7d84498b9a52890ca0555a931963c6bebe36183800a343e45b0f3107a029b966
   ruby_event_store-browser (2.19.2) sha256=3fc3fe8f8a217c460c225b0b49cf53bf5c1fffb72af371291db80a0199badafc
   securerandom (0.4.1) sha256=cc5193d414a4341b6e225f0cb4446aceca8e50d5e1888743fac16987638ea0b1
-  sequel (5.104.0) sha256=1521819b9204aa7f5c25b29fbb2a609ba3f6a82d2271f34f718e1169d31bf03e
-  sorbet-runtime (0.6.13222) sha256=d064f7fc317e4c0ae4a4112588f390d28d60f7dcdd0df7772b0036fce86c28d1
+  sequel (5.105.0) sha256=4191d5e5d011b7229ff8a3401ca6beac047c4d35b1ec6703376513b4b25b2e67
+  sorbet-runtime (0.6.13270) sha256=e7bc6899e438e8fa02fb9324febb4433538b262ecfe8ce770cbd1221e2bf3276
   stringio (3.2.0) sha256=c37cb2e58b4ffbd33fe5cd948c05934af997b36e0b6ca6fdf43afa234cf222e1
   syntax_tree (6.3.0) sha256=56e25a9692c798ec94c5442fe94c5e94af76bef91edc8bb02052cbdecf35f13d
   thor (1.5.0) sha256=e3a9e55fe857e44859ce104a84675ab6e8cd59c650a49106a05f55f136425e73
@@ -393,7 +393,7 @@ CHECKSUMS
   useragent (0.16.11) sha256=700e6413ad4bb954bb63547fa098dddf7b0ebe75b40cc6f93b8d54255b173844
   websocket-driver (0.8.0) sha256=ed0dba4b943c22f17f9a734817e808bc84cdce6a7e22045f5315aa57676d4962
   websocket-extensions (0.1.5) sha256=1c6ba63092cda343eb53fc657110c71c754c56484aad42578495227d717a8241
-  zeitwerk (2.8.1) sha256=1c85e0f28954d68cd16e575da37f26846f609b68d80b5942ccfd31030c2449d5
+  zeitwerk (2.8.2) sha256=7212a61311083c604184b1ea2574b9aa05cd14f855a0841c06985cabe9181d12
 
 BUNDLED WITH
   4.0.11
