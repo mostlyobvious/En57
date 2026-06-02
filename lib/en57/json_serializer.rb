@@ -56,12 +56,12 @@ module En57
         end
       [
         JSON.generate(serialized),
-        (JSON.generate(metadata) unless metadata.empty?),
+        (JSON.generate("serializer" => metadata) unless metadata.empty?),
       ]
     end
 
     def load(string, description)
-      desc = description ? JSON.parse(description) : {}
+      desc = description ? JSON.parse(description).fetch("serializer") : {}
       JSON
         .parse(string)
         .to_h do |k, v|

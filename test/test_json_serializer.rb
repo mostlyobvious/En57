@@ -54,7 +54,7 @@ module En57
 
         payload = { k.value => v.value }
         serialized = JSON.dump(k.serialized => v.serialized)
-        description = meta.empty? ? nil : JSON.dump(meta)
+        description = meta.empty? ? nil : JSON.dump("serializer" => meta)
 
         define_method("test_dump_#{k.name}_key_#{v.name}_value") do
           assert_equal([serialized, description], serializer.dump(payload))
