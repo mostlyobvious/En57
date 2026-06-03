@@ -123,8 +123,9 @@ result = event_store.append(
 case result
 in En57::Success(position:)
   # credits consumed at event position
-in En57::Failure(position:)
-  # lost the race; another writer already consumed credits at position
+in En57::Failure(position:, conflicting_events:)
+  # lost the race; conflicting_events contains the events that matched
+  # the fail_if condition, with position set to the latest conflict
 end
 ```
 
@@ -161,7 +162,7 @@ result = event_store.append(
 case result
 in En57::Success(position:)
   # user registered at event position
-in En57::Failure(position:)
-  # email already used at event position
+in En57::Failure(position:, conflicting_events:)
+  # email already used; conflicting_events contains the matching event
 end
 ```
