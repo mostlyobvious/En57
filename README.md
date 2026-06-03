@@ -1,6 +1,6 @@
 # En57
 
-[DCB-compatible](https://dcb.events) event store library in Ruby with support for PostgreSQL.
+[DCB-compatible](https://dcb.events) event store library in Ruby with support for PostgreSQL. Join the [Discord community](https://discord.gg/DxwH7GfgVV).
 
 ## Usage
 
