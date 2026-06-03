@@ -35,7 +35,7 @@ module En57
       ] = fail_if_events_match unless fail_if_events_match.empty?
 
       statement =
-        "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)"
+        "SELECT status, position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)"
       params = [
         @array_encoder.encode(event_records),
         JSON.generate(append_condition),
@@ -62,6 +62,10 @@ module En57
         when "append_condition_violated"
           Failure.new(
             position: row.first.fetch("position").then { Integer(it) },
+            conflicting_events:
+              JSON
+                .parse(row.first.fetch("conflicting_events"))
+                .map { deserialize_event(it) },
           )
         end
       rescue @adapter.serialization_error
@@ -86,16 +90,32 @@ module En57
         end
         .map do |row|
           [
-            Event.new(
-              id: row.fetch("id"),
-              type: row.fetch("type"),
-              data:
-                @serializer.load(row.fetch("data") || "{}", row.fetch("meta")),
-              tags: @array_decoder.decode(row.fetch("tags")),
-            ),
+            deserialize_event(row),
             Integer(row.fetch("position")),
           ]
         end
+    end
+
+    private
+
+    def json_string(value)
+      value.instance_of?(String) ? value : JSON.generate(value)
+    end
+
+    def deserialize_event(row)
+      Event.new(
+        id: row.fetch("id"),
+        type: row.fetch("type"),
+        data:
+          @serializer.load(
+            json_string(row.fetch("data")),
+            row.fetch("meta").then { json_string(it) if it },
+          ),
+        tags:
+          row.fetch("tags").then do |tags|
+            tags.instance_of?(Array) ? tags : @array_decoder.decode(tags)
+          end,
+      )
     end
   end
 end

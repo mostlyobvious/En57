@@ -28,7 +28,8 @@ CREATE TYPE en57.event AS (
 
 CREATE TYPE en57.append_result AS (
     status text,
-    "position" bigint
+    "position" bigint,
+    conflicting_events jsonb
 );
 
 CREATE FUNCTION en57.append_events (new_events en57.event[], append_condition jsonb DEFAULT '{}'::jsonb)
@@ -45,7 +46,9 @@ DECLARE
     req_tags text[];
     req_after bigint;
     appended_position bigint;
+    matched_event_id uuid;
     matched_position bigint;
+    conflicting_events jsonb;
 BEGIN
     FOREACH criterion IN ARRAY criteria LOOP
         req_after := (criterion ->> 'after')::bigint;
@@ -56,7 +59,8 @@ BEGIN
                 jsonb_array_elements_text(COALESCE(criterion -> 'tags', '[]'::jsonb)));
         IF cardinality(req_tags) > 0 THEN
             SELECT
-                max(e.position)
+                e.id,
+                e.position
             FROM (
                 SELECT
                     t.event_id
@@ -73,23 +77,49 @@ BEGIN
                 OR e.position > req_after)
                 AND (criterion -> 'types' IS NULL
                     OR e.type = ANY (req_types))
-            INTO
-                matched_position;
+            ORDER BY
+                e.position DESC
+            LIMIT 1
+        INTO
+            matched_event_id,
+            matched_position;
         ELSE
             SELECT
-                max(e.position)
+                e.id,
+                e.position
             FROM
                 en57.events AS e
             WHERE (req_after IS NULL
                 OR e.position > req_after)
                 AND (criterion -> 'types' IS NULL
                     OR e.type = ANY (req_types))
-            INTO
-                matched_position;
+            ORDER BY
+                e.position DESC
+            LIMIT 1
+        INTO
+            matched_event_id,
+            matched_position;
         END IF;
         IF matched_position IS NOT NULL THEN
+            SELECT
+                jsonb_agg(jsonb_build_object('id', e.id, 'type', e.type, 'data', e.data, 'meta', e.meta, 'tags', COALESCE(tags.tag_values, '[]'::jsonb))
+                ORDER BY e.position)
+            FROM
+                en57.events AS e
+                LEFT JOIN LATERAL (
+                    SELECT
+                        jsonb_agg(t.value ORDER BY t.value) AS tag_values
+                    FROM
+                        en57.tags AS t
+                    WHERE
+                        t.event_id = e.id) AS tags ON TRUE
+            WHERE
+                e.id = matched_event_id
+            INTO
+                conflicting_events;
             RETURN ROW ('append_condition_violated',
-                matched_position)::en57.append_result;
+                matched_position,
+                conflicting_events)::en57.append_result;
         END IF;
     END LOOP;
     WITH inserted_events AS (
@@ -118,7 +148,8 @@ INSERT INTO en57.events (id, type, data, meta)
         unnest(new_events) AS e
     CROSS JOIN LATERAL unnest(COALESCE(e.tags, ARRAY[]::text[])) AS t (value);
     RETURN ROW ('success',
-        appended_position)::en57.append_result;
+        appended_position,
+        NULL)::en57.append_result;
 END;
 $$;
 

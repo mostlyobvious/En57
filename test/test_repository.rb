@@ -36,7 +36,7 @@ module En57
           :exec_params,
           success_result,
           [
-            "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT status, position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [expected_events, "{}"],
           ],
         )
@@ -80,7 +80,7 @@ module En57
           :exec_params,
           success_result,
           [
-            "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT status, position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [expected_events, "{}"],
           ],
         )
@@ -108,7 +108,7 @@ module En57
           :exec_params,
           success_result,
           [
-            "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT status, position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [
               expected_events,
               '{"fail_if_events_match":[{"types":["OrderPlaced"],"after":42}]}',
@@ -156,7 +156,7 @@ module En57
         connection.expect(:exec, nil, ["BEGIN"])
         connection.expect(:exec_params, nil) do |sql, params|
           assert_equal(
-            "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT status, position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
             sql,
           )
           assert_equal(
@@ -543,7 +543,19 @@ module En57
         connection.expect(:exec, nil, ["COMMIT"])
 
         assert_equal(
-          Failure.new(position: 3),
+          Failure.new(
+            position: 3,
+            conflicting_events: [
+              Event.new(
+                id: ids[1],
+                type: "OrderPlaced",
+                data: {
+                  amount: 100,
+                },
+                tags: ["order_id:123"],
+              ),
+            ],
+          ),
           Repository.new(
             PgAdapter.for_connection(connection),
             JsonSerializer.new,
@@ -644,8 +656,34 @@ module En57
 
     def success_result = [{ "status" => "success", "position" => "1" }]
 
-    def failure_result =
-      [{ "status" => "append_condition_violated", "position" => "3" }]
+    def failure_result
+      [
+        {
+          "status" => "append_condition_violated",
+          "position" => "3",
+          "conflicting_events" =>
+            JSON.generate(
+              [
+                {
+                  id: ids[1],
+                  type: "OrderPlaced",
+                  data: {
+                    "amount" => 100,
+                  },
+                  meta: {
+                    "serializer" => {
+                      "amount" => {
+                        "k" => "Symbol",
+                      },
+                    },
+                  },
+                  tags: ["order_id:123"],
+                },
+              ],
+            ),
+        },
+      ]
+    end
 
     def append_events = [Event.new(id: ids[0], type: "OrderPaid")]
 
@@ -655,7 +693,7 @@ module En57
 
     def append_args
       [
-        "SELECT status, position FROM en57.append_events($1::en57.event[], $2::jsonb)",
+        "SELECT status, position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
         [
           array_encoder.encode(append_event_records),
           '{"fail_if_events_match":[{"types":["OrderPlaced"]}]}',

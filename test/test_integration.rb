@@ -61,14 +61,22 @@ module En57
 
       define_method "test_#{name}_append_with_fail_if_and_matches_returns_failure" do
         with_event_store(factory) do |event_store|
-          existing_event = Event.new(id: ids[0], type: "OrderPlaced")
+          existing_event =
+            Event.new(
+              id: ids[0],
+              type: "OrderPlaced",
+              data: {
+                amount: 100,
+              },
+              tags: ["order_id:123"],
+            )
           assert_equal(
             Success.new(position: 1),
             event_store.append([existing_event]),
           )
 
           assert_equal(
-            Failure.new(position: 1),
+            Failure.new(position: 1, conflicting_events: [existing_event]),
             event_store.append(
               [Event.new(id: ids[1], type: "ShipmentScheduled")],
               fail_if: event_store.read.of_type("OrderPlaced"),
@@ -110,7 +118,7 @@ module En57
           )
 
           assert_equal(
-            Failure.new(position: 1),
+            Failure.new(position: 1, conflicting_events: [existing_event]),
             event_store.append(
               [Event.new(id: ids[1], type: "ShipmentScheduled")],
               fail_if: event_store.read.of_type("OrderPlaced").after(0),
