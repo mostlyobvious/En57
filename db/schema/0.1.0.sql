@@ -150,7 +150,7 @@ INSERT INTO en57.events (id, type, data, meta)
 END;
 $$;
 
-CREATE FUNCTION en57.read_events (criteria jsonb[])
+CREATE FUNCTION en57.read_events (criteria jsonb[], batch_size int DEFAULT NULL, after_position bigint DEFAULT NULL)
     RETURNS TABLE (
         "position" bigint,
         id uuid,
@@ -180,8 +180,9 @@ filtered_events AS (
         e.meta
     FROM
         en57.events AS e
-    WHERE
-        cardinality(criteria) = 0
+    WHERE (after_position IS NULL
+        OR e.position > after_position)
+    AND (cardinality(criteria) = 0
         OR EXISTS (
             SELECT
                 1
@@ -204,14 +205,14 @@ filtered_events AS (
                             en57.tags AS t
                         WHERE
                             t.event_id = e.id
-                            AND t.value = req.value))))
-    SELECT
-        e.position,
-        e.id,
-        e.type,
-        e.data,
-        e.meta,
-        COALESCE(t.tags, ARRAY[]::text[]) AS tags
+                            AND t.value = req.value)))))
+SELECT
+    e.position,
+    e.id,
+    e.type,
+    e.data,
+    e.meta,
+    COALESCE(t.tags, ARRAY[]::text[]) AS tags
 FROM
     filtered_events AS e
     LEFT JOIN LATERAL (
@@ -222,6 +223,7 @@ FROM
         WHERE
             t.event_id = e.id) AS t ON TRUE
 ORDER BY
-    e.position;
+    e.position
+LIMIT batch_size;
 $$;
 

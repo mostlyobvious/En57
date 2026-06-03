@@ -79,23 +79,40 @@ module En57
 
     def read(query)
       criteria = query.encoded_criteria.map { |item| JSON.generate(item) }
+      batch_size = En57.configuration.read_batch_size
 
-      @adapter
-        .with_connection do |connection|
-          connection.exec_params(
-            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[])",
-            [@array_encoder.encode(criteria)],
-          )
+      Enumerator.new do |yielder|
+        cursor = nil
+        loop do
+          has_more = false
+          read_batch(
+            criteria,
+            (batch_size + 1 if batch_size),
+            cursor,
+          ).each_with_index do |row, index|
+            if index == batch_size
+              has_more = true
+              break
+            end
+            position = Integer(row.fetch("position"))
+            yielder << [deserialize_event(row), position]
+            cursor = position
+          end
+          break unless has_more
         end
-        .map do |row|
-          [
-            deserialize_event(row),
-            Integer(row.fetch("position")),
-          ]
-        end
+      end
     end
 
     private
+
+    def read_batch(criteria, limit, after_position)
+      @adapter.with_connection do |connection|
+        connection.exec_params(
+          "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[], $2, $3)",
+          [@array_encoder.encode(criteria), limit, after_position],
+        )
+      end
+    end
 
     def json_string(value)
       value.instance_of?(String) ? value : JSON.generate(value)
@@ -111,9 +128,11 @@ module En57
             row.fetch("meta").then { json_string(it) if it },
           ),
         tags:
-          row.fetch("tags").then do |tags|
-            tags.instance_of?(Array) ? tags : @array_decoder.decode(tags)
-          end,
+          row
+            .fetch("tags")
+            .then do |tags|
+              tags.instance_of?(Array) ? tags : @array_decoder.decode(tags)
+            end,
       )
     end
   end

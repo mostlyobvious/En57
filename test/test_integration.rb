@@ -270,6 +270,33 @@ module En57
           assert_equal(events.fetch_values(0, 2), (orders | prices).each.to_a)
         end
       end
+
+      define_method "test_#{name}_read_streams_results_spanning_many_batches" do
+        with_event_store(factory) do |event_store|
+          events =
+            (1..5).map do |n|
+              Event.new(
+                id: ids[n],
+                type: "OrderPlaced",
+                tags: ["order_id:#{n}"],
+              )
+            end
+          assert_equal(Success.new(position: 5), event_store.append(events))
+
+          En57
+            .configuration
+            .stub(:read_batch_size, 2) do
+              assert_equal(events, event_store.read.each.to_a)
+              assert_equal(
+                events
+                  .map
+                  .with_index(1) { |event, position| [event, position] },
+                event_store.read.each_with_position.to_a,
+              )
+              assert_equal(events.drop(2), event_store.read.after(2).each.to_a)
+            end
+        end
+      end
     end
 
     private

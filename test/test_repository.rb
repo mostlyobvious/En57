@@ -214,8 +214,8 @@ module En57
             },
           ],
           [
-            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[])",
-            [array_encoder.encode([])],
+            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[], $2, $3)",
+            [array_encoder.encode([]), 1001, nil],
           ],
         )
 
@@ -244,10 +244,10 @@ module En57
               2,
             ],
           ],
-          Repository.new(
-            PgAdapter.for_connection(connection),
-            JsonSerializer.new,
-          ).read(Query.all),
+          Repository
+            .new(PgAdapter.for_connection(connection), JsonSerializer.new)
+            .read(Query.all)
+            .to_a,
         )
       end
     end
@@ -267,8 +267,8 @@ module En57
             },
           ],
           [
-            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[])",
-            [array_encoder.encode([])],
+            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[], $2, $3)",
+            [array_encoder.encode([]), 1001, nil],
           ],
         )
 
@@ -285,10 +285,10 @@ module En57
               1,
             ],
           ],
-          Repository.new(
-            PgAdapter.for_connection(connection),
-            JsonSerializer.new,
-          ).read(Query.all),
+          Repository
+            .new(PgAdapter.for_connection(connection), JsonSerializer.new)
+            .read(Query.all)
+            .to_a,
         )
       end
     end
@@ -308,17 +308,17 @@ module En57
             },
           ],
           [
-            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[])",
-            [array_encoder.encode([])],
+            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[], $2, $3)",
+            [array_encoder.encode([]), 1001, nil],
           ],
         )
 
         assert_equal(
           [[Event.new(id: ids[0], type: "OrderPlaced", data: {}), 1]],
-          Repository.new(
-            PgAdapter.for_connection(connection),
-            JsonSerializer.new,
-          ).read(Query.all),
+          Repository
+            .new(PgAdapter.for_connection(connection), JsonSerializer.new)
+            .read(Query.all)
+            .to_a,
         )
       end
     end
@@ -342,8 +342,8 @@ module En57
             },
           ],
           [
-            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[])",
-            [array_encoder.encode(['{"tags":["order_id:123"]}'])],
+            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[], $2, $3)",
+            [array_encoder.encode(['{"tags":["order_id:123"]}']), 1001, nil],
           ],
         )
 
@@ -361,10 +361,10 @@ module En57
               1,
             ],
           ],
-          Repository.new(
-            PgAdapter.for_connection(connection),
-            JsonSerializer.new,
-          ).read(query),
+          Repository
+            .new(PgAdapter.for_connection(connection), JsonSerializer.new)
+            .read(query)
+            .to_a,
         )
       end
     end
@@ -385,8 +385,8 @@ module En57
             },
           ],
           [
-            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[])",
-            [array_encoder.encode(["{}"])],
+            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[], $2, $3)",
+            [array_encoder.encode(["{}"]), 1001, nil],
           ],
         )
 
@@ -404,10 +404,10 @@ module En57
               1,
             ],
           ],
-          Repository.new(
-            PgAdapter.for_connection(connection),
-            JsonSerializer.new,
-          ).read(query),
+          Repository
+            .new(PgAdapter.for_connection(connection), JsonSerializer.new)
+            .read(query)
+            .to_a,
         )
       end
     end
@@ -434,11 +434,13 @@ module En57
             },
           ],
           [
-            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[])",
+            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[], $2, $3)",
             [
               array_encoder.encode(
                 %w[{"tags":["order_id:123"]} {"tags":["order_id:456"]}],
               ),
+              1001,
+              nil,
             ],
           ],
         )
@@ -457,10 +459,10 @@ module En57
               1,
             ],
           ],
-          Repository.new(
-            PgAdapter.for_connection(connection),
-            JsonSerializer.new,
-          ).read(query),
+          Repository
+            .new(PgAdapter.for_connection(connection), JsonSerializer.new)
+            .read(query)
+            .to_a,
         )
       end
     end
@@ -475,17 +477,17 @@ module En57
           :exec_params,
           [],
           [
-            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[])",
-            [array_encoder.encode(['{"after":42}'])],
+            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[], $2, $3)",
+            [array_encoder.encode(['{"after":42}']), 1001, nil],
           ],
         )
 
         assert_equal(
           [],
-          Repository.new(
-            PgAdapter.for_connection(connection),
-            JsonSerializer.new,
-          ).read(query),
+          Repository
+            .new(PgAdapter.for_connection(connection), JsonSerializer.new)
+            .read(query)
+            .to_a,
         )
       end
     end
@@ -509,8 +511,8 @@ module En57
             },
           ],
           [
-            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[])",
-            [array_encoder.encode(['{"types":["OrderPlaced"]}'])],
+            "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[], $2, $3)",
+            [array_encoder.encode(['{"types":["OrderPlaced"]}']), 1001, nil],
           ],
         )
 
@@ -528,12 +530,128 @@ module En57
               1,
             ],
           ],
-          Repository.new(
-            PgAdapter.for_connection(connection),
-            JsonSerializer.new,
-          ).read(query),
+          Repository
+            .new(PgAdapter.for_connection(connection), JsonSerializer.new)
+            .read(query)
+            .to_a,
         )
       end
+    end
+
+    def test_read_paginates_with_keyset_cursor_across_batches
+      En57
+        .configuration
+        .stub(:read_batch_size, 2) do
+          with_connection do |connection|
+            connection.expect(
+              :exec_params,
+              [
+                stored_row(1, ids[0]),
+                stored_row(2, ids[1]),
+                stored_row(3, ids[2]),
+              ],
+              [read_statement, [array_encoder.encode([]), 3, nil]],
+            )
+            connection.expect(
+              :exec_params,
+              [
+                stored_row(3, ids[2]),
+                stored_row(4, ids[3]),
+                stored_row(5, ids[4]),
+              ],
+              [read_statement, [array_encoder.encode([]), 3, 2]],
+            )
+            connection.expect(
+              :exec_params,
+              [stored_row(5, ids[4])],
+              [read_statement, [array_encoder.encode([]), 3, 4]],
+            )
+
+            assert_equal(
+              [
+                [stored_event(ids[0]), 1],
+                [stored_event(ids[1]), 2],
+                [stored_event(ids[2]), 3],
+                [stored_event(ids[3]), 4],
+                [stored_event(ids[4]), 5],
+              ],
+              Repository
+                .new(PgAdapter.for_connection(connection), JsonSerializer.new)
+                .read(Query.all)
+                .to_a,
+            )
+          end
+        end
+    end
+
+    def test_read_makes_single_query_when_result_fills_one_batch_exactly
+      En57
+        .configuration
+        .stub(:read_batch_size, 2) do
+          with_connection do |connection|
+            connection.expect(
+              :exec_params,
+              [stored_row(1, ids[0]), stored_row(2, ids[1])],
+              [read_statement, [array_encoder.encode([]), 3, nil]],
+            )
+
+            assert_equal(
+              [[stored_event(ids[0]), 1], [stored_event(ids[1]), 2]],
+              Repository
+                .new(PgAdapter.for_connection(connection), JsonSerializer.new)
+                .read(Query.all)
+                .to_a,
+            )
+          end
+        end
+    end
+
+    def test_read_fetches_only_the_first_batch_when_consumer_takes_one
+      En57
+        .configuration
+        .stub(:read_batch_size, 2) do
+          with_connection do |connection|
+            connection.expect(
+              :exec_params,
+              [
+                stored_row(1, ids[0]),
+                stored_row(2, ids[1]),
+                stored_row(3, ids[2]),
+              ],
+              [read_statement, [array_encoder.encode([]), 3, nil]],
+            )
+
+            assert_equal(
+              [stored_event(ids[0]), 1],
+              Repository
+                .new(PgAdapter.for_connection(connection), JsonSerializer.new)
+                .read(Query.all)
+                .first,
+            )
+          end
+        end
+    end
+
+    def test_read_fetches_everything_in_one_query_when_batching_disabled
+      En57
+        .configuration
+        .stub(:read_batch_size, nil) do
+          with_connection do |connection|
+            connection.expect(
+              :exec_params,
+              [stored_row(1, ids[0]), stored_row(2, ids[1])],
+              [read_statement, [array_encoder.encode([]), nil, nil]],
+            )
+
+            assert_equal(
+              [[stored_event(ids[0]), 1], [stored_event(ids[1]), 2]],
+              Repository
+                .new(PgAdapter.for_connection(connection), JsonSerializer.new)
+                .read(Query.all)
+                .to_a,
+            )
+          end
+        end
     end
 
     def test_append_returns_failure_when_sql_returns_conflicting_events
@@ -642,6 +760,23 @@ module En57
     private
 
     def ids = @ids ||= Hash.new { |h, k| h[k] = SecureRandom.uuid_v7 }
+
+    def read_statement =
+      "SELECT position, id, type, data, meta, tags FROM en57.read_events($1::jsonb[], $2, $3)"
+
+    def stored_row(position, id)
+      {
+        "position" => position.to_s,
+        "id" => id,
+        "type" => "OrderPlaced",
+        "data" => nil,
+        "meta" => nil,
+        "tags" => "{}",
+      }
+    end
+
+    def stored_event(id) =
+      Event.new(id: id, type: "OrderPlaced", data: {}, tags: [])
 
     def with_connection
       connection = Minitest::Mock.new

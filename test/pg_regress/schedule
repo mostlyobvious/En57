@@ -1,2 +1,3 @@
 test: 001_schema
 test: 002_read_events_disjunction
+test: 003_read_events_batching

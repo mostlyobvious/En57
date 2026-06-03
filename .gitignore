@@ -2,3 +2,4 @@
 /.mutant/
 /pkg/
 /tmp/
+/test/pg_regress/results/
