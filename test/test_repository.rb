@@ -36,7 +36,7 @@ module En57
           :exec_params,
           success_result,
           [
-            "SELECT status, position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [expected_events, "{}"],
           ],
         )
@@ -80,7 +80,7 @@ module En57
           :exec_params,
           success_result,
           [
-            "SELECT status, position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [expected_events, "{}"],
           ],
         )
@@ -108,7 +108,7 @@ module En57
           :exec_params,
           success_result,
           [
-            "SELECT status, position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
             [
               expected_events,
               '{"fail_if_events_match":[{"types":["OrderPlaced"],"after":42}]}',
@@ -156,7 +156,7 @@ module En57
         connection.expect(:exec, nil, ["BEGIN"])
         connection.expect(:exec_params, nil) do |sql, params|
           assert_equal(
-            "SELECT status, position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
+            "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
             sql,
           )
           assert_equal(
@@ -536,7 +536,7 @@ module En57
       end
     end
 
-    def test_append_returns_failure_when_sql_status_is_append_condition_violated
+    def test_append_returns_failure_when_sql_returns_conflicting_events
       with_connection do |connection|
         connection.expect(:exec, nil, ["BEGIN ISOLATION LEVEL SERIALIZABLE"])
         connection.expect(:exec_params, failure_result, append_args)
@@ -654,12 +654,11 @@ module En57
 
     def record_encoder = @record_encoder ||= PG::TextEncoder::Record.new
 
-    def success_result = [{ "status" => "success", "position" => "1" }]
+    def success_result = [{ "position" => "1", "conflicting_events" => nil }]
 
     def failure_result
       [
         {
-          "status" => "append_condition_violated",
           "position" => "3",
           "conflicting_events" =>
             JSON.generate(
@@ -693,7 +692,7 @@ module En57
 
     def append_args
       [
-        "SELECT status, position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
+        "SELECT position, conflicting_events FROM en57.append_events($1::en57.event[], $2::jsonb)",
         [
           array_encoder.encode(append_event_records),
           '{"fail_if_events_match":[{"types":["OrderPlaced"]}]}',

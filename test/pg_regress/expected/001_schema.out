@@ -27,7 +27,6 @@ CREATE TYPE en57.event AS (
 );
 
 CREATE TYPE en57.append_result AS (
-    status text,
     "position" bigint,
     conflicting_events jsonb
 );
@@ -117,8 +116,7 @@ BEGIN
                 e.id = matched_event_id
             INTO
                 conflicting_events;
-            RETURN ROW ('append_condition_violated',
-                matched_position,
+            RETURN ROW (matched_position,
                 conflicting_events)::en57.append_result;
         END IF;
     END LOOP;
@@ -147,8 +145,7 @@ INSERT INTO en57.events (id, type, data, meta)
     FROM
         unnest(new_events) AS e
     CROSS JOIN LATERAL unnest(COALESCE(e.tags, ARRAY[]::text[])) AS t (value);
-    RETURN ROW ('success',
-        appended_position,
+    RETURN ROW (appended_position,
         NULL)::en57.append_result;
 END;
 $$;
