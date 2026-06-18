@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modularity Review</title>
+<style>
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace;
+    --max-width: 820px;
+  }
+
+  :root[data-theme="light"] {
+    --bg: #ffffff;
+    --bg-secondary: #f6f8fa;
+    --bg-tertiary: #eef1f5;
+    --text: #1a1a1a;
+    --text-secondary: #4a5568;
+    --text-muted: #718096;
+    --border: #e2e8f0;
+    --accent: #2b6cb0;
+    --accent-light: #ebf4ff;
+    --severity-critical: #c53030;
+    --severity-critical-bg: #fff5f5;
+    --severity-significant: #c05621;
+    --severity-significant-bg: #fffaf0;
+    --severity-minor: #2b6cb0;
+    --severity-minor-bg: #ebf8ff;
+    --table-stripe: #f7fafc;
+    --link: #2b6cb0;
+    --link-hover: #1a4971;
+    --shadow: rgba(0, 0, 0, 0.06);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #1a1a1a;
+    --bg-secondary: #242424;
+    --bg-tertiary: #2e2e2e;
+    --text: #e2e2e2;
+    --text-secondary: #a0a0a0;
+    --text-muted: #717171;
+    --border: #333333;
+    --accent: #b0b0b0;
+    --accent-light: #2a2a2a;
+    --severity-critical: #fc8181;
+    --severity-critical-bg: #2d1b1b;
+    --severity-significant: #f6ad55;
+    --severity-significant-bg: #2d2415;
+    --severity-minor: #a0a0a0;
+    --severity-minor-bg: #282828;
+    --table-stripe: #222222;
+    --link: #e0c97f;
+    --link-hover: #f0dca0;
+    --shadow: rgba(0, 0, 0, 0.2);
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    margin: 0;
+    padding: 2rem 1.5rem;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+
+  .container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+  }
+
+  /* Theme toggle */
+  .theme-toggle {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: var(--text);
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    z-index: 100;
+  }
+
+  .theme-toggle:hover {
+    background: var(--bg-tertiary);
+  }
+
+  /* Typography */
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.5rem 0;
+    color: var(--text);
+  }
+
+  h2 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 2.5rem 0 1rem 0;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 1.8rem 0 0.6rem 0;
+    color: var(--text);
+  }
+
+  p {
+    margin: 0 0 1rem 0;
+    color: var(--text-secondary);
+  }
+
+  a {
+    color: var(--link);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s ease;
+  }
+
+  a:hover {
+    color: var(--link-hover);
+    border-bottom-color: var(--link-hover);
+  }
+
+  /* Metadata */
+  .meta {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .meta strong {
+    color: var(--text-secondary);
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.9rem;
+  }
+
+  th {
+    background: var(--bg-secondary);
+    font-weight: 600;
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  td {
+    padding: 0.65rem 1rem;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+
+  tr:nth-child(even) td {
+    background: var(--table-stripe);
+  }
+
+  /* Severity badges */
+  .severity {
+    display: inline-block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.15rem 0.6rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .severity-critical {
+    color: var(--severity-critical);
+    background: var(--severity-critical-bg);
+  }
+
+  .severity-significant {
+    color: var(--severity-significant);
+    background: var(--severity-significant-bg);
+  }
+
+  .severity-minor {
+    color: var(--severity-minor);
+    background: var(--severity-minor-bg);
+  }
+
+  /* Issue cards */
+  .issue {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem 2rem;
+    margin: 1.5rem 0;
+    box-shadow: 0 1px 3px var(--shadow);
+  }
+
+  .issue h2 {
+    margin-top: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .issue h3 {
+    font-size: 1rem;
+  }
+
+  .issue-meta {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  /* Lists */
+  ul, ol {
+    padding-left: 1.5rem;
+    color: var(--text-secondary);
+  }
+
+  li {
+    margin-bottom: 0.35rem;
+  }
+
+  /* Code */
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--bg-tertiary);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+  }
+
+  /* Horizontal rule */
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 3rem 0 1.5rem 0;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .footer a {
+    color: var(--text-muted);
+    border-bottom-color: var(--border);
+  }
+
+  .footer a:hover {
+    color: var(--link);
+  }
+
+  /* Print */
+  @media print {
+    .theme-toggle { display: none; }
+    body { padding: 0; }
+    .issue { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+  <span id="theme-icon"></span>
+</button>
+
+<div class="container">
+  <h1>Modularity Review</h1>
+  <div class="meta">
+    <strong>Scope</strong>: Entire <code>en57</code> library — <code>lib/</code> (EventStore, Scope/Query, Repository, adapters, JsonSerializer, Migrator, Configuration) plus the PostgreSQL schema and stored functions in <code>db/schema/0.1.0.sql</code><br>
+    <strong>Date</strong>: 2026-06-18
+  </div>
+
+  <h2>Executive Summary</h2>
+  <p><code>en57</code> is a <a href="https://dcb.events">DCB-compatible</a> event store library for Ruby on PostgreSQL. It lets applications append events with optimistic-concurrency conditions (<code>fail_if</code>) and read them back through a fluent, tag- and type-filtered query DSL, pushing the consistency-boundary logic down into PL/pgSQL stored functions. Overall the design is <strong>healthy and well-factored</strong>: the connection adapters, serializer, and migrator are cleanly separated behind narrow <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">contracts</a>, and their low <a href="https://coupling.dev/posts/dimensions-of-coupling/volatility/">volatility</a> keeps them out of trouble. The one finding that deserves real attention is the <strong>implicit contract between the Ruby <code>Repository</code> and the SQL stored functions</strong> — the wire format and the positional composite-type encoding are duplicated, stringly-typed knowledge spread across two languages in the most <a href="https://coupling.dev/posts/dimensions-of-coupling/volatility/">volatile</a> part of the system. Because the gem and schema ship in lockstep, this is not a distributed-monolith problem — but it is a latent source of <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">fragility</a> that should be made explicit before the query surface grows.</p>
+
+  <h2>Coupling Overview</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Integration</th>
+        <th><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Strength</a></th>
+        <th><a href="https://coupling.dev/posts/dimensions-of-coupling/distance/">Distance</a></th>
+        <th><a href="https://coupling.dev/posts/dimensions-of-coupling/volatility/">Volatility</a></th>
+        <th><a href="https://coupling.dev/posts/core-concepts/balance/">Balanced?</a></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>Repository</code> → SQL functions (<code>en57.append_events</code> / <code>en57.read_events</code>, <code>en57.event</code> type)</td>
+        <td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Functional</a> / <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Intrusive</a> (implicit)</td>
+        <td>Medium — cross-language, but same repo/maintainer &amp; lockstep release</td>
+        <td><strong>High</strong> (core)</td>
+        <td><strong>No</strong> — implicit high strength in the most volatile path</td>
+      </tr>
+      <tr>
+        <td><code>Query</code> / <code>Criteria</code> → SQL criteria parsing</td>
+        <td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Functional</a> (implicit, shared wire format)</td>
+        <td>Medium (Ruby ↔ PL/pgSQL)</td>
+        <td><strong>High</strong> (core)</td>
+        <td><strong>No</strong> — same root cause as above</td>
+      </tr>
+      <tr>
+        <td><code>Migrator</code> → database &amp; schema layout</td>
+        <td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Functional</a> (own <code>PG.connect</code>, hardcoded schema name)</td>
+        <td>High (Ruby ↔ SQL, bypasses adapters)</td>
+        <td>Low (supporting)</td>
+        <td>Tolerable — low volatility neutralizes it</td>
+      </tr>
+      <tr>
+        <td><code>Scope</code> ↔ <code>MergedScope</code></td>
+        <td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Functional</a> (duplicated iteration logic)</td>
+        <td>Low (same file)</td>
+        <td>High (core)</td>
+        <td>Mostly — low distance, but duplication risks drift</td>
+      </tr>
+      <tr>
+        <td><code>Repository</code> → <code>Configuration</code> (global <code>Singleton</code>)</td>
+        <td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Functional</a> (action at a distance)</td>
+        <td>Logical distance via global state</td>
+        <td>Low</td>
+        <td>Tolerable — low volatility, but a testability smell</td>
+      </tr>
+      <tr>
+        <td><code>Repository</code> → adapters (<code>with_connection</code> / <code>with_transaction</code> / <code>serialization_error</code>)</td>
+        <td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Contract</a> (with implicit "yields raw <code>pg</code> connection")</td>
+        <td>Low (same module)</td>
+        <td>Low (generic)</td>
+        <td><strong>Yes</strong> — balanced</td>
+      </tr>
+      <tr>
+        <td><code>Repository</code> → <code>JsonSerializer</code></td>
+        <td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Contract</a> (<code>dump</code> / <code>load</code>, pluggable)</td>
+        <td>Low (same module)</td>
+        <td>Low (generic)</td>
+        <td><strong>Yes</strong> — balanced</td>
+      </tr>
+      <tr>
+        <td><code>Scope</code> / <code>EventStore</code> → <code>Repository</code></td>
+        <td><a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Contract</a> / <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">Model</a> (<code>read</code> yields <code>[event, position]</code>)</td>
+        <td>Low (same module)</td>
+        <td>Medium</td>
+        <td><strong>Yes</strong> — balanced</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The bottom three rows are examples of <a href="https://coupling.dev/posts/core-concepts/balance/">balanced coupling</a> and need no action; they are listed to show the contrast. The issues below cover the unbalanced rows.</p>
+
+  <div class="issue">
+    <h2>Issue: Implicit, two-language contract between the Repository and the SQL stored functions</h2>
+    <div class="issue-meta">
+      <strong>Integration</strong>: <code>Repository</code> (+ <code>Query</code>/<code>Criteria</code>) → <code>en57.append_events</code> / <code>en57.read_events</code><br>
+      <strong>Severity</strong>: <span class="severity severity-significant">Significant</span>
+    </div>
+
+    <h3>Knowledge Leakage</h3>
+    <p>The integration that carries the library's whole reason to exist — the DCB append/read semantics — is expressed as an <strong>implicit wire format duplicated across Ruby and PL/pgSQL</strong>, with no single place that defines it. Three distinct pieces of knowledge leak across the boundary:</p>
+    <ol>
+      <li><strong>The positional layout of the <code>en57.event</code> composite type</strong> (<a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">intrusive coupling</a>). <code>Repository#append</code> builds each record with <code>@record_encoder.encode([event.id, event.type, serialized, description, tags])</code> (<code>lib/en57/repository.rb:21-29</code>). The order and count of those five elements must match <code>CREATE TYPE en57.event AS (id, type, data, meta, tags)</code> (<code>db/schema/0.1.0.sql:21-27</code>) exactly and positionally. Nothing names the fields; the coupling is to an <em>implementation detail</em> of the type definition.</li>
+      <li><strong>The criteria/<code>append_condition</code> JSON shape</strong> (<a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">functional coupling</a>). <code>Criteria#matcher</code> emits <code>{types:, tags:, after:}</code> (<code>lib/en57/query.rb:23-27</code>); <code>Repository</code> wraps it as <code>{fail_if_events_match: [...]}</code> (<code>lib/en57/repository.rb:31-36</code>); and both SQL functions reach into exactly those keys — <code>append_condition -&gt; 'fail_if_events_match'</code>, <code>criterion -&gt; 'types'</code>, <code>-&gt; 'tags'</code>, <code>-&gt;&gt; 'after'</code> (<code>db/schema/0.1.0.sql:40-58</code>, <code>163-208</code>). The same vocabulary is hand-maintained in three files and two languages.</li>
+      <li><strong>The result column set</strong> — <code>position</code>, <code>conflicting_events</code>, <code>id</code>, <code>type</code>, <code>data</code>, <code>meta</code>, <code>tags</code> — is fetched by name in <code>deserialize_event</code> (<code>lib/en57/repository.rb:57-67</code>, <code>121-137</code>) and must match the <code>RETURNS</code> clauses of both functions.</li>
+    </ol>
+    <p>None of this is encapsulated by an <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">integration contract</a>. It is the textbook description of intrusive coupling: <em>"both fragile and implicit."</em></p>
+
+    <h3>Complexity Impact</h3>
+    <p>Because the contract is stringly-typed JSON and a positional tuple, <strong>no tool spans the boundary</strong>. The Ruby test suite cannot see a column reorder in the SQL; the PostgreSQL function cannot see a renamed JSON key in Ruby. A developer changing one side has to hold both representations — Ruby encoder, JSON vocabulary, and PL/pgSQL parser — in working memory simultaneously to reason about correctness. That is more than the 4±1 units of working memory the model warns about, so the outcome of a change becomes <a href="https://coupling.dev/posts/core-concepts/complexity/">unpredictable</a>: it surfaces only at runtime, as a deserialization error or a silently wrong query result, rather than at edit time.</p>
+
+    <h3>Cascading Changes</h3>
+    <p>This area is the <a href="https://coupling.dev/posts/dimensions-of-coupling/volatility/">core subdomain</a> and is demonstrably <a href="https://coupling.dev/posts/dimensions-of-coupling/volatility/">volatile</a> — recent commits added <em>batched reads</em> and <em>conflicting-events-on-failure</em>, both of which touched exactly this boundary. Concrete cascades that the current design makes risky:</p>
+    <ul>
+      <li><strong>Adding a new query dimension</strong> (e.g. a <code>before</code>/upper-bound position, or correlation/causation filters from <code>doc/ideas.md</code>) requires coordinated edits in <code>Criteria#matcher</code>, the <code>Scope</code> DSL, and <em>both</em> SQL functions' JSON parsing — four edit sites, no compiler to catch an omission.</li>
+      <li><strong>Reordering or inserting a field in the <code>en57.event</code> composite type</strong> silently breaks the positional encoder with no failing unit test until an integration run hits the database.</li>
+      <li><strong>Renaming a wire key</strong> (<code>tags</code> → <code>tag_values</code>, say) compiles cleanly on both sides and fails only at runtime.</li>
+    </ul>
+    <p>The mitigating factor — and the reason this is <strong>Significant rather than Critical</strong> — is the confirmed <strong>lockstep lifecycle</strong>: the gem and the schema are released and migrated together by a single maintainer, so there is no <a href="https://coupling.dev/posts/dimensions-of-coupling/distance/">lifecycle/deployment distance</a> and no version-skew window. Both sides always change in the same release, which is genuine <a href="https://coupling.dev/posts/core-concepts/balance/">high cohesion</a>. What remains is the <em>cognitive</em> distance of co-evolving an implicit contract across two languages — cheap to get wrong, not cheap to verify.</p>
+
+    <h3>Recommended Improvement</h3>
+    <p>Keep the components exactly where they are — the strength is essential (the library deliberately pushes consistency logic into PostgreSQL) and the distance is already minimized by lockstep, so splitting or moving nothing is warranted. Instead, <strong>make the implicit contract explicit</strong> to convert <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">intrusive coupling into contract coupling</a>:</p>
+    <ul>
+      <li><strong>Eliminate the positional encoding.</strong> Encode the <code>en57.event</code> record with named fields, or add a single Ruby constant (e.g. <code>EVENT_RECORD_FIELDS = %i[id type data meta tags]</code>) that drives the encoder, and a <code>pg_regress</code> assertion that the composite type's column order matches it. This removes the most fragile, most implicit leak at near-zero cost.</li>
+      <li><strong>Define the wire vocabulary once.</strong> Promote the criteria/<code>append_condition</code> keys (<code>types</code>, <code>tags</code>, <code>after</code>, <code>fail_if_events_match</code>) into named constants on the Ruby side and reference them everywhere they are generated, and add a contract test that round-trips a representative criteria document through <code>read_events</code>/<code>append_events</code> so a key rename on either side fails a test rather than production.</li>
+      <li><strong>Pin the contract with characterization tests at the boundary.</strong> The existing <code>test/pg_regress</code> suite is the natural home: one fixture per wire-format element so any change to the JSON shape or column set must be acknowledged in an expected-output file.</li>
+    </ul>
+    <p><strong>Trade-off</strong>: this adds a small amount of indirection and a handful of boundary tests — modest ceremony for code that is otherwise pleasantly direct. It is worthwhile precisely because this is the <em>most volatile</em> boundary in the system: every future query feature crosses it, and an explicit contract turns each of those crossings from a four-site memory exercise into a single, test-guarded change.</p>
+  </div>
+
+  <div class="issue">
+    <h2>Issue: Migrator bypasses the adapter abstraction and re-encodes schema knowledge</h2>
+    <div class="issue-meta">
+      <strong>Integration</strong>: <code>Migrator</code> → database &amp; <code>en57</code> schema layout<br>
+      <strong>Severity</strong>: <span class="severity severity-minor">Minor</span>
+    </div>
+
+    <h3>Knowledge Leakage</h3>
+    <p><code>Migrator</code> opens its own connection with <code>PG.connect(@connection_string)</code> (<code>lib/en57/migrator.rb:155-160</code>) rather than going through the <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">adapter contract</a> (<code>with_connection</code>) that the rest of the library uses. It also independently knows the <code>en57</code> schema name and the <code>public.en57_schema_info</code> bookkeeping table — knowledge that overlaps with the <code>en57.*</code>-qualified SQL strings baked into <code>Repository</code>. There are thus two separate strategies for "how <code>en57</code> talks to PostgreSQL."</p>
+
+    <h3>Complexity Impact</h3>
+    <p>The duplication is small but means a developer reasoning about connection handling, pooling, or schema naming has to know that migration is the one path that does <em>not</em> obey the adapter abstraction. It is a low-grade inconsistency rather than a cascading hazard.</p>
+
+    <h3>Cascading Changes</h3>
+    <p>Migration is a <a href="https://coupling.dev/posts/dimensions-of-coupling/volatility/">supporting subdomain</a> with <strong>low volatility</strong> — <code>migrate!</code> currently only installs a fresh schema and explicitly refuses version diffs (<code>lib/en57/migrator.rb:29-43</code>). Per the <a href="https://coupling.dev/posts/core-concepts/balance/">balance rule</a>, <code>BALANCE = (STRENGTH XOR DISTANCE) OR NOT VOLATILITY</code>: the low volatility term neutralizes the imbalance, so this is tolerable today. It would only start to bite if migration grew richer (multi-version upgrades) while still bypassing the shared connection plumbing.</p>
+
+    <h3>Recommended Improvement</h3>
+    <p>No action required now. When versioned migrations land, consider routing the <code>Migrator</code> through the same adapter interface (or a thin connection abstraction) so connection handling and schema naming live in one place. Until then, the duplication is cheap to carry and splitting it out would add distance for no volatility-justified benefit.</p>
+  </div>
+
+  <div class="issue">
+    <h2>Issue: Duplicated iteration logic between Scope and MergedScope</h2>
+    <div class="issue-meta">
+      <strong>Integration</strong>: <code>Scope</code> ↔ <code>MergedScope</code><br>
+      <strong>Severity</strong>: <span class="severity severity-minor">Minor</span>
+    </div>
+
+    <h3>Knowledge Leakage</h3>
+    <p><code>Scope</code> and <code>MergedScope</code> carry nearly identical implementations of <code>each</code>, <code>each_with_position</code>, and <code>to_query</code>, and both delegate to <code>@repository.read(@query)</code> (<code>lib/en57/scope.rb:14-26</code>, <code>40-52</code>). The knowledge of <em>how a query is iterated and how positions are threaded through</em> is <a href="https://coupling.dev/posts/dimensions-of-coupling/integration-strength/">duplicated functional knowledge</a> held in two classes.</p>
+
+    <h3>Complexity Impact</h3>
+    <p>The <a href="https://coupling.dev/posts/dimensions-of-coupling/distance/">distance</a> is the lowest possible — the two classes sit in the same file, visible together — so by the <a href="https://coupling.dev/posts/core-concepts/balance/">balance rule</a> high strength at low distance is <a href="https://coupling.dev/posts/core-concepts/balance/">high cohesion</a>, not a real imbalance. The only risk is <strong>drift</strong>: because the duplication is implicit (no shared base/mixin), a change to read iteration — exactly the kind of change the recent batched-reads work represents — must be remembered in both places.</p>
+
+    <h3>Cascading Changes</h3>
+    <p>Any change to iteration semantics (a new <code>each_*</code> variant, lazy/eager changes, instrumentation hooks from the <code>doc/ideas.md</code> pub-sub plans) currently means editing both classes. Cheap to perform (same file) but easy to half-apply.</p>
+
+    <h3>Recommended Improvement</h3>
+    <p>Extract the shared iteration behavior into a small module included by both classes, or have <code>MergedScope</code> and <code>Scope</code> share a common ancestor for the read-side methods. This keeps strength high and distance low (a module in the same file) while removing the duplication, so the cohesion stays but the drift risk goes away. The trade-off is one extra indirection layer — justified because this code lives in the volatile core query surface.</p>
+  </div>
+
+  <div class="issue">
+    <h2>Issue: Repository reads append/read tuning from a global Configuration singleton</h2>
+    <div class="issue-meta">
+      <strong>Integration</strong>: <code>Repository</code> → <code>Configuration</code> (global <code>Singleton</code>)<br>
+      <strong>Severity</strong>: <span class="severity severity-minor">Minor</span>
+    </div>
+
+    <h3>Knowledge Leakage</h3>
+    <p><code>Repository</code> reaches into the global <code>En57.configuration</code> for <code>append_retries</code> and <code>read_batch_size</code> <em>at call time</em>, deep inside <code>append</code> and <code>read</code> (<code>lib/en57/repository.rb:44</code>, <code>82</code>), while the <code>serializer</code> is injected once via the constructor default (<code>lib/en57/repository.rb:7</code>). The same concept — runtime tuning — is sourced two different ways, and two of the three values are pulled from process-global state rather than passed in.</p>
+
+    <h3>Complexity Impact</h3>
+    <p>Global, frozen <a href="https://coupling.dev/posts/dimensions-of-coupling/distance/">singleton</a> access is a form of logical distance: the dependency is invisible at the <code>Repository</code> boundary, which complicates testing (a test must mutate global state to exercise retry/batch behavior) and obscures what a <code>Repository</code> actually needs to function. This is a cohesion/testability smell, not a cascading-change generator.</p>
+
+    <h3>Cascading Changes</h3>
+    <p>Configuration is <strong>low volatility</strong>, so the <a href="https://coupling.dev/posts/core-concepts/balance/">balance rule</a>'s <code>NOT VOLATILITY</code> term keeps this tolerable. The cost is paid in test friction rather than production change-amplification.</p>
+
+    <h3>Recommended Improvement</h3>
+    <p>For consistency, source all three tunables the same way the serializer already is — read them at construction time (defaulting from <code>En57.configuration</code>) and store them on the instance, rather than reaching into the global mid-method. This makes <code>Repository</code>'s dependencies explicit at its boundary and removes global state from the hot path, at the cost of a slightly larger constructor. Low priority given the low volatility.</p>
+  </div>
+
+  <div class="footer">
+    <hr>
+    <p><em>This analysis was performed using the <a href="https://coupling.dev">Balanced Coupling</a> model by <a href="https://vladikk.com">Vlad Khononov</a>.</em></p>
+  </div>
+</div>
+
+<script>
+  function getDefaultTheme() {
+    const hour = new Date().getHours();
+    return (hour >= 7 && hour < 19) ? 'light' : 'dark';
+  }
+
+  function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('modularity-review-theme', theme);
+    document.getElementById('theme-icon').textContent = theme === 'light' ? '☾' : '☀';
+  }
+
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme');
+    setTheme(current === 'light' ? 'dark' : 'light');
+  }
+
+  const saved = localStorage.getItem('modularity-review-theme');
+  setTheme(saved || getDefaultTheme());
+</script>
+</body>
+</html>
