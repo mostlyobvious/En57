@@ -7,7 +7,7 @@
   packages = [
     pkgs.postgresql_18
     pkgs.postgresql_18.pg_config
-    pkgs.pgformatter
+    pkgs.sqlfluff
     pkgs.jq
     pkgs.libyaml
   ];
