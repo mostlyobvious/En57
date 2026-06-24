@@ -24,10 +24,8 @@
     "app:check".exec = "bin/rake"; # default: test + mutate_since
   };
 
-  # treefmt drives all formatters (Ruby via syntax_tree, SQL via sqlfluff).
   treefmt.enable = true;
   treefmt.config = {
-    projectRootFile = "devenv.nix";
     settings.formatter = {
       ruby = {
         command = "stree";
@@ -36,7 +34,13 @@
       };
       sql = {
         command = "sqlfluff";
-        options = [ "format" ];
+        options = [
+          "format"
+          "--dialect"
+          "postgres"
+          "--exclude-rules"
+          "LT05"
+        ];
         includes = [ "db/**/*.sql" ];
       };
     };
