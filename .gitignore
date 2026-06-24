@@ -10,3 +10,6 @@ devenv.local.nix
 devenv.local.yaml
 .pre-commit-config.yaml
 /.githooks/
+
+/.agents/skills/
+/.claude/skills/
