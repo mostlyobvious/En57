@@ -17,17 +17,17 @@
   '';
 
   tasks = {
-    "app:setup".exec = "bundle install --quiet";
-    "devenv:enterShell".after = [ "app:setup" ];
-    "app:format".exec = "treefmt";
+    "dev:setup".exec = "bundle install --quiet";
+    "devenv:enterShell".after = [ "dev:setup" ];
+    "dev:format".exec = "treefmt";
 
     "test:unit" = {
       exec = "bin/m test";
-      after = [ "app:setup" ];
+      after = [ "dev:setup" ];
     };
     "test:mutate" = {
       exec = ''bin/mutant run --since "''${MUTANT_SINCE:-HEAD}"'';
-      after = [ "app:setup" ];
+      after = [ "dev:setup" ];
     };
     "test:pg".exec = "pg-regress";
   };
