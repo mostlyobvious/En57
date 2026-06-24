@@ -59,9 +59,6 @@
     };
   };
 
-  # Self-contained pg_regress run: spin up an ephemeral PostgreSQL with the
-  # Nix server binaries, load the schema, run the regression schedule, then
-  # tear it down. No Rakefile task, no gem, no env-var paths.
   scripts.pg-regress.exec = ''
     set -euo pipefail
     cd "$DEVENV_ROOT"
@@ -103,27 +100,25 @@
   '';
 
   claude.code.enable = true;
-  claude.code.hooks.git-hooks-run.enable = false;
-  claude.code.hooks.format = {
-    name = "Format edited files with treefmt";
-    hookType = "PostToolUse";
-    matcher = "Write|Edit";
-    command = ''
-      jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; treefmt "$f"; } 2>/dev/null || true
-    '';
-  };
-  # Run the test suite when the agent loop ends. On failure, feed the
-  # output back so the agent fixes it; the stop_hook_active guard stops a
-  # second continuation from looping on the (slow) suite indefinitely.
-  claude.code.hooks.test = {
-    name = "Run the test namespace on stop";
-    hookType = "Stop";
-    command = ''
-      input=$(cat)
-      cd "''${DEVENV_ROOT:-.}" || exit 0
-      devenv tasks run test 1>&2 && exit 0
-      [ "$(printf '%s' "$input" | jq -r '.stop_hook_active // false')" = "true" ] && exit 0
-      exit 2
-    '';
+  claude.code.hooks = {
+    format = {
+      name = "Format edited files with treefmt";
+      hookType = "PostToolUse";
+      matcher = "Write|Edit";
+      command = ''
+        jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; treefmt "$f"; } 2>/dev/null || true
+      '';
+    };
+    test = {
+      name = "Run the test namespace on stop";
+      hookType = "Stop";
+      command = ''
+        input=$(cat)
+        cd "''${DEVENV_ROOT:-.}" || exit 0
+        devenv tasks run test 1>&2 && exit 0
+        [ "$(printf '%s' "$input" | jq -r '.stop_hook_active // false')" = "true" ] && exit 0
+        exit 2
+      '';
+    };
   };
 }
