@@ -14,10 +14,11 @@
 
   enterShell = ''
     export MUTANT_SINCE="''${MUTANT_SINCE:-HEAD}"
-    bundle install --quiet
   '';
 
   tasks = {
+    "app:setup".exec = "bundle install --quiet";
+    "devenv:enterShell".after = [ "app:setup" ];
     "app:format".exec = "treefmt";
     "app:test".exec = "bin/rake test";
     "app:mutate".exec = "bin/mutant run";
