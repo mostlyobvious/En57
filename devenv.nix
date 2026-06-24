@@ -26,6 +26,9 @@
 
   treefmt.enable = true;
   treefmt.config = {
+    programs = {
+      nixfmt.enable = true;
+    };
     settings.formatter = {
       ruby = {
         command = "stree";
