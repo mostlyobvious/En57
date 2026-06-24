@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      MUTANT_SINCE: ${{ github.event.pull_request.base.sha || 'HEAD^' }}
+      MUTANT_SINCE: ${{ github.event.pull_request.base.sha || github.event.before }}
 
     steps:
       - uses: actions/checkout@v6
