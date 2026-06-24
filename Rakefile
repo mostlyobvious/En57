@@ -8,7 +8,7 @@ Minitest::TestTask.create
 
 task :format do
   system("stree write **/*.rb")
-  system("pg_format -i db/**/*.sql")
+  system("sqlfluff format db")
 end
 
 task :mutate do
