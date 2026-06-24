@@ -19,8 +19,10 @@
   tasks = {
     "dev:setup".exec = "bundle install --quiet";
     "devenv:enterShell".after = [ "dev:setup" ];
-    "dev:format".exec = "treefmt";
-
+    "dev:format" = {
+      exec = "treefmt";
+      after = [ "dev:setup" ];
+    };
     "test:unit" = {
       exec = "bin/m test";
       after = [ "dev:setup" ];
