@@ -4,7 +4,7 @@
 -- of the same shape the benchmark queries.
 INSERT INTO en57.events (id, type)
 SELECT
-    gen_random_uuid (),
+    gen_random_uuid(),
     'event_benchmarked'
 FROM
     generate_series(1, 1000000);
@@ -15,4 +15,3 @@ SELECT
     'writer:' || substr(md5(random()::text), 1, 8)
 FROM
     en57.events;
-

@@ -23,7 +23,7 @@ CREATE TYPE en57.event AS (
     type text,
     data jsonb,
     meta jsonb,
-    tags text[]
+    tags text []
 );
 
 CREATE TYPE en57.append_result AS (
@@ -31,11 +31,13 @@ CREATE TYPE en57.append_result AS (
     conflicting_events jsonb
 );
 
-CREATE FUNCTION en57.append_events (new_events en57.event[], append_condition jsonb DEFAULT '{}'::jsonb)
-    RETURNS en57.append_result
-    LANGUAGE plpgsql
-    SET enable_seqscan = OFF
-    AS $$
+CREATE FUNCTION en57.append_events(
+    new_events en57.event [], append_condition jsonb DEFAULT '{}'::jsonb
+)
+RETURNS en57.append_result
+LANGUAGE plpgsql
+SET enable_seqscan = OFF
+AS $$
 DECLARE
     criteria jsonb[] := ARRAY (
         SELECT
@@ -150,16 +152,21 @@ INSERT INTO en57.events (id, type, data, meta)
 END;
 $$;
 
-CREATE FUNCTION en57.read_events (criteria jsonb[], batch_size int DEFAULT NULL, after_position bigint DEFAULT NULL)
-    RETURNS TABLE (
-        "position" bigint,
-        id uuid,
-        type text,
-        data jsonb,
-        meta jsonb,
-        tags text[])
-    LANGUAGE SQL
-    AS $$
+CREATE FUNCTION en57.read_events(
+    criteria jsonb [],
+    batch_size int DEFAULT NULL,
+    after_position bigint DEFAULT NULL
+)
+RETURNS TABLE (
+    "position" bigint,
+    id uuid,
+    type text,
+    data jsonb,
+    meta jsonb,
+    tags text []
+)
+LANGUAGE sql
+AS $$
     WITH parsed_criteria AS (
         SELECT
             c,
@@ -226,4 +233,3 @@ ORDER BY
     e.position
 LIMIT batch_size;
 $$;
-
