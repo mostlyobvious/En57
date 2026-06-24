@@ -166,3 +166,34 @@ in En57::Failure(position:, conflicting_events:)
   # email already used; conflicting_events contains the matching event
 end
 ```
+
+## Development
+
+The development environment is managed with [devenv](https://devenv.sh). It
+pins the Ruby and PostgreSQL toolchain through Nix, so the only prerequisites
+are Nix (with flakes) and devenv.
+
+Enter the environment:
+
+```sh
+devenv shell
+```
+
+This provides Ruby, PostgreSQL, and the formatters, and installs the gem
+dependencies (`bundle install`, via the `dev:setup` task) on entry.
+
+Tasks are run with `devenv tasks run`:
+
+| Task | What it does |
+|------|--------------|
+| `test` | Run the whole `test:` namespace (unit, mutation, pg_regress) |
+| `test:unit` | Run the unit tests (`bin/m test`) |
+| `test:mutate` | Run mutation testing (`mutant`) for changes since `MUTANT_SINCE` (defaults to `HEAD`) |
+| `test:pg` | Run the `pg_regress` suite against an ephemeral PostgreSQL |
+| `dev:format` | Format Ruby and SQL with [treefmt](https://treefmt.com) (syntax_tree + sqlfluff) |
+
+`pg-regress` is also available as a standalone script in the shell.
+
+CI runs `devenv tasks run test`. The devenv config also wires up Claude Code
+hooks: edited files are formatted with treefmt, and the test suite runs at the
+end of each agent loop.
