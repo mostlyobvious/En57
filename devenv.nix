@@ -1,8 +1,25 @@
-{ pkgs, lib, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 
 {
   languages.ruby.enable = true;
   languages.ruby.version = "4.0.5";
+
+  # The Nix Ruby ships bundler 2.7.2; build a current bundler for it instead.
+  languages.ruby.bundler.enable = true;
+  languages.ruby.bundler.package =
+    (pkgs.bundler.override { ruby = config.languages.ruby.package; }).overrideAttrs
+      (_: rec {
+        version = "4.0.15";
+        src = pkgs.fetchurl {
+          url = "https://rubygems.org/gems/bundler-${version}.gem";
+          hash = "sha256-pM64gv6UoOCsY80IE5Mrv9YxoU5awLeXUYmxmk0o2ec=";
+        };
+      });
 
   packages = [
     pkgs.postgresql_18
