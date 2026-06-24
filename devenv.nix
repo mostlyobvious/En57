@@ -38,7 +38,23 @@
       after = [ "dev:setup" ];
     };
     "test:unit" = {
-      exec = "bin/m test";
+      exec = ''
+        ruby -Itest -Ilib <<'RUBY'
+          require "bundler/setup"
+          Dir["test/test_*.rb"].sort.each { require File.expand_path(_1) }
+          Minitest::Runnable.runnables.reject! { _1.superclass != Minitest::Test || _1 == En57::IntegrationTest }
+        RUBY
+      '';
+      after = [ "dev:setup" ];
+    };
+    "test:integration" = {
+      exec = ''
+        ruby -Itest -Ilib <<'RUBY'
+          require "bundler/setup"
+          Dir["test/test_*.rb"].sort.each { require File.expand_path(_1) }
+          Minitest::Runnable.runnables.reject! { _1.superclass != En57::IntegrationTest }
+        RUBY
+      '';
       after = [ "dev:setup" ];
     };
     "test:mutate" = {
