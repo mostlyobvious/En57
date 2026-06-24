@@ -19,8 +19,6 @@
     bundle install --quiet
   '';
 
-  enterTest = "bin/rake";
-
   tasks = {
     "app:format".exec = "bin/rake format";
     "app:test".exec = "bin/rake test";
