@@ -8,9 +8,6 @@
 {
   languages.ruby.enable = true;
   languages.ruby.version = "4.0.5";
-
-  # The Nix Ruby ships bundler 2.7.2; build a current bundler for it instead.
-  languages.ruby.bundler.enable = true;
   languages.ruby.bundler.package =
     (pkgs.bundler.override { ruby = config.languages.ruby.package; }).overrideAttrs
       (_: rec {
