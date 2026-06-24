@@ -24,6 +24,8 @@
     pkgs.sqlfluff
     pkgs.jq
     pkgs.libyaml
+    pkgs.pi-coding-agent
+    pkgs.claude-code
   ];
 
   enterShell = ''

@@ -16,3 +16,4 @@ inputs:
     inputs:
       nixpkgs:
         follows: nixpkgs
+allowUnfree: true
