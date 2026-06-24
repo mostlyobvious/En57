@@ -102,9 +102,9 @@
 
   git-hooks.hooks.test = {
     enable = true;
-    name = "test:unit + test:mutate";
+    name = "test namespace";
     entry = "${pkgs.writeShellScript "pre-commit-test" ''
-      exec devenv tasks run test:unit test:mutate
+      exec devenv tasks run test
     ''}";
     pass_filenames = false;
     language = "system";
