@@ -18,10 +18,28 @@
   '';
 
   tasks = {
-    "app:format".exec = "bin/rake format";
+    "app:format".exec = "treefmt";
     "app:test".exec = "bin/rake test";
     "app:mutate".exec = "bin/mutant run";
     "app:check".exec = "bin/rake"; # default: test + mutate_since
+  };
+
+  # treefmt drives all formatters (Ruby via syntax_tree, SQL via sqlfluff).
+  treefmt.enable = true;
+  treefmt.config = {
+    projectRootFile = "devenv.nix";
+    settings.formatter = {
+      ruby = {
+        command = "stree";
+        options = [ "write" ];
+        includes = [ "*.rb" ];
+      };
+      sql = {
+        command = "sqlfluff";
+        options = [ "format" ];
+        includes = [ "db/**/*.sql" ];
+      };
+    };
   };
 
   # Self-contained pg_regress run: spin up an ephemeral PostgreSQL with the
@@ -81,12 +99,12 @@
 
   claude.code.enable = true;
   claude.code.hooks.git-hooks-run.enable = false;
-  claude.code.hooks.format-ruby = {
-    name = "Format Ruby with syntax_tree";
+  claude.code.hooks.format = {
+    name = "Format edited files with treefmt";
     hookType = "PostToolUse";
     matcher = "Write|Edit";
     command = ''
-      jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; case "$f" in *.rb) bin/stree write "$f" ;; esac; } 2>/dev/null || true
+      jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; treefmt "$f"; } 2>/dev/null || true
     '';
   };
 }

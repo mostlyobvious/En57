@@ -1,2 +1,6 @@
 [sqlfluff]
 dialect = postgres
+# LT05 (line too long) is unfixable for long function signatures and seed
+# rows, which makes `sqlfluff format` exit non-zero. Exclude it so it acts
+# purely as a formatter under treefmt.
+exclude_rules = LT05
