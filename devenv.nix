@@ -20,9 +20,16 @@
     "app:setup".exec = "bundle install --quiet";
     "devenv:enterShell".after = [ "app:setup" ];
     "app:format".exec = "treefmt";
-    "app:test".exec = "bin/rake test";
-    "app:mutate".exec = "bin/mutant run";
-    "app:check".exec = "bin/rake"; # default: test + mutate_since
+
+    "test:unit" = {
+      exec = "bin/m test";
+      after = [ "app:setup" ];
+    };
+    "test:mutate" = {
+      exec = ''bin/mutant run --since "''${MUTANT_SINCE:-HEAD}"'';
+      after = [ "app:setup" ];
+    };
+    "test:pg".exec = "pg-regress";
   };
 
   treefmt.enable = true;
@@ -93,12 +100,11 @@
       --schedule=test/pg_regress/schedule_existing
   '';
 
-  git-hooks.hooks.rake = {
+  git-hooks.hooks.test = {
     enable = true;
-    name = "rake (test + mutate_since)";
-    entry = "${pkgs.writeShellScript "rake-precommit" ''
-      export MUTANT_SINCE="''${MUTANT_SINCE:-HEAD}"
-      exec bin/rake
+    name = "test:unit + test:mutate";
+    entry = "${pkgs.writeShellScript "pre-commit-test" ''
+      exec devenv tasks run test:unit test:mutate
     ''}";
     pass_filenames = false;
     language = "system";
