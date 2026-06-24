@@ -102,17 +102,6 @@
       --schedule=test/pg_regress/schedule_existing
   '';
 
-  git-hooks.hooks.test = {
-    enable = true;
-    name = "test namespace";
-    entry = "${pkgs.writeShellScript "pre-commit-test" ''
-      exec devenv tasks run test
-    ''}";
-    pass_filenames = false;
-    language = "system";
-    stages = [ "pre-commit" ];
-  };
-
   claude.code.enable = true;
   claude.code.hooks.git-hooks-run.enable = false;
   claude.code.hooks.format = {
@@ -121,6 +110,20 @@
     matcher = "Write|Edit";
     command = ''
       jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; treefmt "$f"; } 2>/dev/null || true
+    '';
+  };
+  # Run the test suite when the agent loop ends. On failure, feed the
+  # output back so the agent fixes it; the stop_hook_active guard stops a
+  # second continuation from looping on the (slow) suite indefinitely.
+  claude.code.hooks.test = {
+    name = "Run the test namespace on stop";
+    hookType = "Stop";
+    command = ''
+      input=$(cat)
+      cd "''${DEVENV_ROOT:-.}" || exit 0
+      devenv tasks run test 1>&2 && exit 0
+      [ "$(printf '%s' "$input" | jq -r '.stop_hook_active // false')" = "true" ] && exit 0
+      exit 2
     '';
   };
 }
