@@ -6,11 +6,6 @@ require_relative "lib/en57/tasks"
 
 Minitest::TestTask.create
 
-task :format do
-  system("stree write **/*.rb")
-  system("sqlfluff format db")
-end
-
 task :mutate do
   system("bin/mutant run")
 end
