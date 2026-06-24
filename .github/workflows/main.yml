@@ -39,5 +39,5 @@ jobs:
           path: .devenv/state/.bundle
           key: ${{ runner.os }}-gems-${{ hashFiles('Gemfile.lock') }}
           restore-keys: ${{ runner.os }}-gems-
-      - name: Run the default task
-        run: devenv shell -- bin/rake
+      - name: Run the tests
+        run: devenv tasks run test:unit test:mutate
