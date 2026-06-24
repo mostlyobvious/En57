@@ -1,5 +1,12 @@
+/.claude/settings.json
+/.mcp.json
 /.bundle/
 /.mutant/
 /pkg/
 /tmp/
 /test/pg_regress/results/
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+.pre-commit-config.yaml
+/.githooks/

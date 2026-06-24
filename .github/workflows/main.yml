@@ -22,10 +22,22 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
         with:
-          ruby-version: '4.0.2'
-          bundler-cache: true
+          extra_nix_config: |
+            accept-flake-config = true
+      - name: Set up cachix
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
+      - name: Cache gems
+        uses: actions/cache@v4
+        with:
+          path: .devenv/state/.bundle
+          key: ${{ runner.os }}-gems-${{ hashFiles('Gemfile.lock') }}
+          restore-keys: ${{ runner.os }}-gems-
       - name: Run the default task
-        run: bin/rake
+        run: devenv shell -- bin/rake
