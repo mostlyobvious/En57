@@ -39,7 +39,7 @@
     devenv tasks run test
   '';
 
-  env.OCIMAN_BACKEND = "docker";
+  env.OCIMAN_BACKEND = pkgs.lib.mkIf pkgs.stdenv.isDarwin "docker";
 
   services.postgres = {
     enable = true;
@@ -186,11 +186,13 @@
     };
   };
 
-  scripts.docker.exec = builtins.readFile (
-    pkgs.fetchurl {
-      url = "https://raw.githubusercontent.com/mostlyobvious/apple-container-docker-shim/refs/heads/main/bin/docker";
-      hash = "sha256-lg9Z5sMwthWUd9cogJpqkdWfacIl5ji4R/lLl4GdbGg=";
-    }
+  scripts.docker.exec = pkgs.lib.mkIf pkgs.stdenv.isDarwin (
+    builtins.readFile (
+      pkgs.fetchurl {
+        url = "https://raw.githubusercontent.com/mostlyobvious/apple-container-docker-shim/refs/heads/main/bin/docker";
+        hash = "sha256-lg9Z5sMwthWUd9cogJpqkdWfacIl5ji4R/lLl4GdbGg=";
+      }
+    )
   );
 
   scripts.pg-regress.exec = ''
