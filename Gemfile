@@ -14,7 +14,6 @@ gem "minitest-mock"
 gem "minitest-stub-const"
 gem "mutant-minitest"
 gem "concurrent-ruby"
-gem "syntax_tree"
 
 gem "activerecord"
 gem "sequel"
