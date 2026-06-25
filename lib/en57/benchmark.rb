@@ -3,7 +3,7 @@
 require "benchmark"
 require "concurrent-ruby"
 require "connection_pool"
-require "pg_ephemeral"
+require "pg"
 require "securerandom"
 
 require_relative "../en57"
@@ -21,6 +21,8 @@ module En57
         :median,
         :retry_count,
       )
+
+    Runnable = Data.define(:build, :reset)
 
     class Table
       def format(results)
@@ -121,7 +123,19 @@ module En57
 
     class Scenario
       Configuration =
-        Data.define(:database_instance, :name, :concurrency, :batch_size, :runs)
+        Data.define(
+          :database_instance,
+          :name,
+          :concurrency,
+          :batch_size,
+          :runs,
+          :reset,
+        )
+
+      RESET_EN57 = "TRUNCATE en57.tags, en57.events RESTART IDENTITY CASCADE"
+      RESET_RES =
+        "TRUNCATE event_store_events, event_store_events_in_streams " \
+          "RESTART IDENTITY CASCADE"
 
       @definitions = []
 
@@ -133,6 +147,7 @@ module En57
         concurrency: 1,
         batch_size: 100,
         runs: ->(runs) { runs },
+        reset: RESET_EN57,
         &block
       )
         register(
@@ -142,6 +157,7 @@ module En57
             concurrency:,
             batch_size:,
             runs:,
+            reset:,
           ),
           &block
         )
@@ -157,6 +173,8 @@ module En57
             define_singleton_method(:database_instance) do
               configuration.database_instance
             end
+
+            define_singleton_method(:reset) { configuration.reset }
 
             define_singleton_method(
               :build,
@@ -243,9 +261,12 @@ module En57
           .to_h do |scenario_class|
             [
               scenario_class.database_instance,
-              ->(database_url, warmup_runs) do
-                scenario_class.build(database_url:, warmup_runs:, runs:)
-              end,
+              Runnable.new(
+                reset: scenario_class.reset,
+                build: ->(database_url, warmup_runs) do
+                  scenario_class.build(database_url:, warmup_runs:, runs:)
+                end,
+              ),
             ]
           end
       end
@@ -260,34 +281,44 @@ module En57
         En57.configuration.append_retries = 100
 
         results =
-          @scenarios.map do |instance_name, mk_scenario|
-            PgEphemeral.with_server(instance_name:) do |server|
-              samples = Concurrent::Array.new
-              retries = Concurrent::AtomicFixnum.new
+          @scenarios.map do |instance_name, runnable|
+            database_url = "postgres:///#{instance_name}"
+            reset(database_url, runnable.reset)
 
-              scenario = mk_scenario.call(server.url, 2)
-              scenario.run(
-                ->(&block) { samples << ::Benchmark.realtime { block.call } },
-                -> { retries.increment },
-              )
-              measurement = Measurement.from(samples)
+            samples = Concurrent::Array.new
+            retries = Concurrent::AtomicFixnum.new
 
-              Result.new(
-                name: scenario.name,
-                runs: scenario.runs,
-                mean: measurement.mean,
-                stddev: measurement.stddev,
-                min: measurement.min,
-                max: measurement.max,
-                median: measurement.median,
-                retry_count: retries.value,
-              )
-            end
+            scenario = runnable.build.call(database_url, 2)
+            scenario.run(
+              ->(&block) { samples << ::Benchmark.realtime { block.call } },
+              -> { retries.increment },
+            )
+            measurement = Measurement.from(samples)
+
+            Result.new(
+              name: scenario.name,
+              runs: scenario.runs,
+              mean: measurement.mean,
+              stddev: measurement.stddev,
+              min: measurement.min,
+              max: measurement.max,
+              median: measurement.median,
+              retry_count: retries.value,
+            )
           end
 
         @formatter.format(results)
       ensure
         En57.configuration.append_retries = original_append_retries
+      end
+
+      private
+
+      def reset(database_url, sql)
+        connection = PG.connect(database_url)
+        connection.exec(sql)
+      ensure
+        connection&.close
       end
     end
 

@@ -38,6 +38,14 @@ module En57
     concurrent_append_non_conflicting_tags.with(
       database_instance: "concurrent-append-non-conflicting-tags-seeded",
       name: "10x100 concurrent append, non-conflicting tags (seeded)",
+      reset:
+        Scenario::RESET_EN57 + "; " +
+          File.read(
+            File.expand_path(
+              "../../db/seeds/concurrent_append_non_conflicting_tags_seeded.sql",
+              __dir__,
+            ),
+          ),
     )
   end
 end

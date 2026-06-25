@@ -33,6 +33,37 @@
     export MUTANT_SINCE="''${MUTANT_SINCE:-HEAD}"
   '';
 
+  services.postgres = {
+    enable = true;
+    package = pkgs.postgresql_18;
+    initialDatabases =
+      let
+        en57 = name: {
+          inherit name;
+          schema = ./db/schema/0.1.0.sql;
+        };
+        res = name: {
+          inherit name;
+          schema = ./db/seeds/res.sql;
+        };
+      in
+      [
+        (en57 "main")
+        (en57 "append-no-fail-if")
+        (en57 "append-no-fail-if-ar")
+        (en57 "append-non-conflicting-tags")
+        (en57 "concurrent-append-no-fail-if")
+        (en57 "concurrent-append-no-fail-if-ar")
+        (en57 "concurrent-append-conflicting-tags")
+        (en57 "concurrent-append-non-conflicting-tags")
+        (en57 "concurrent-append-non-conflicting-tags-seeded")
+        (res "res-append-stream-any")
+        (res "res-concurrent-append-non-conflicting-streams")
+        (res "res-concurrent-append-conflicting-streams")
+        (en57 "en57_regress")
+      ];
+  };
+
   files =
     let
       commitSkill = ''
@@ -159,23 +190,12 @@
 
     pg_regress=${pkgs.postgresql_18.dev}/lib/pgxs/src/test/regress/pg_regress
     bindir=${pkgs.postgresql_18}/bin
-    workdir=$(mktemp -d)
-    datadir=$workdir/data
-    socketdir=$workdir/socket
     dbname=en57_regress
-    mkdir -p "$socketdir"
+    user=''${PGUSER:-$(id -un)}
 
-    cleanup() {
-      "$bindir/pg_ctl" -D "$datadir" -m immediate stop >/dev/null 2>&1 || true
-      rm -rf "$workdir"
-    }
-    trap cleanup EXIT
-
-    "$bindir/initdb" -D "$datadir" -U postgres --auth=trust >/dev/null
-    "$bindir/pg_ctl" -D "$datadir" -w \
-      -o "-k $socketdir -c listen_addresses='''" start >/dev/null
-    "$bindir/createdb" -h "$socketdir" -U postgres "$dbname"
-    "$bindir/psql" -h "$socketdir" -U postgres -d "$dbname" \
+    "$bindir/dropdb" -h "$PGHOST" -U "$user" --if-exists "$dbname"
+    "$bindir/createdb" -h "$PGHOST" -U "$user" "$dbname"
+    "$bindir/psql" -h "$PGHOST" -U "$user" -d "$dbname" \
       -v ON_ERROR_STOP=1 -q -f db/schema/0.1.0.sql
 
     rm -rf test/pg_regress/results
@@ -183,8 +203,8 @@
 
     "$pg_regress" \
       --use-existing \
-      --host="$socketdir" \
-      --user=postgres \
+      --host="$PGHOST" \
+      --user="$user" \
       --dbname="$dbname" \
       --inputdir=test/pg_regress \
       --outputdir=test/pg_regress/results \

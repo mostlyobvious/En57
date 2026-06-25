@@ -7,6 +7,7 @@ module En57
       name: "10x100 concurrent append, conflicting streams (RES)",
       concurrency: 10,
       batch_size: 100,
+      reset: Scenario::RESET_RES,
     ) do
       def setup(database_url)
         require "active_record"
