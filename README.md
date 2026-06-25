@@ -182,6 +182,15 @@ devenv shell
 This provides Ruby, PostgreSQL, and the formatters, and installs the gem
 dependencies (`bundle install`, via the `dev:setup` task) on entry.
 
+`devenv shell` provides the toolchain but does not start the PostgreSQL
+service. Bring the services up before running anything that touches the
+database:
+
+```sh
+devenv up      # foreground; Ctrl-C to stop
+devenv up -d   # detached; stop later with `devenv processes down`
+```
+
 Tasks are run with `devenv tasks run`:
 
 | Task | What it does |
@@ -189,11 +198,20 @@ Tasks are run with `devenv tasks run`:
 | `test` | Run the whole `test:` namespace (unit, mutation, pg_regress) |
 | `test:unit` | Run the unit tests (`bin/m test`) |
 | `test:mutate` | Run mutation testing (`mutant`) for changes since `MUTANT_SINCE` (defaults to `HEAD`) |
-| `test:pg` | Run the `pg_regress` suite against an ephemeral PostgreSQL |
+| `test:pg` | Run the `pg_regress` suite against the running PostgreSQL service |
 | `dev:format` | Format Ruby and SQL with [treefmt](https://treefmt.com) (syntax_tree + sqlfluff) |
+
+`devenv tasks run` does not start services, so the DB-backed tests assume
+PostgreSQL is already up (see `devenv up` above). To start the services,
+wait for them to be healthy, run the suite, and tear them down in one step,
+use:
+
+```sh
+devenv test
+```
 
 `pg-regress` is also available as a standalone script in the shell.
 
-CI runs `devenv tasks run test`. The devenv config also wires up Claude Code
-hooks: edited files are formatted with treefmt, and the test suite runs at the
-end of each agent loop.
+CI runs `devenv test`. The devenv config also wires up Claude Code hooks:
+edited files are formatted with treefmt, and the test suite runs at the end
+of each agent loop.
