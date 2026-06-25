@@ -207,6 +207,42 @@ module En57
         assert_in_delta(1.1, formatted_results.fetch(0).mean)
       end
 
+      def test_runner_uses_configured_admin_database_url
+        formatter = Object.new
+        formatter.define_singleton_method(:format) { |_results| "formatted" }
+        connection = fake_pg_connection
+
+        PG.stub(:connect, connection.method(:connect)) do
+          Runner.new(
+            formatter:,
+            scenarios: {
+              "instance" =>
+                Runnable.new(
+                  template: "golden_en57",
+                  build: ->(_database_url, _warmup_runs) do
+                    Class
+                      .new do
+                        def name = "scenario"
+                        def runs = 1
+                        def run(measure, _retries)
+                          measure.call { nil }
+                        end
+                      end
+                      .new
+                  end,
+                ),
+            },
+            admin_url: "postgres://127.0.0.1:15432/postgres",
+          ).run
+        end
+
+        assert_equal(["postgres://127.0.0.1:15432/postgres"], connection.urls)
+        assert_match(
+          /\ACREATE DATABASE "en57\.\h{16}" TEMPLATE "golden_en57"\z/,
+          connection.statements.fetch(0),
+        )
+      end
+
       def test_runner_yields_database_url
         formatter = Object.new
         formatter.define_singleton_method(:format) { |_results| "formatted" }
@@ -706,6 +742,42 @@ module En57
             runner.instance_variable_get(:@scenarios).keys,
           )
         end
+      end
+
+      def test_classic_runner_uses_database_url_as_admin_url
+        ENV["DATABASE_URL"] = "postgres://127.0.0.1:15432/postgres"
+
+        assert_equal(
+          "postgres://127.0.0.1:15432/postgres",
+          Runner.classic.instance_variable_get(:@admin_url),
+        )
+      ensure
+        ENV.delete("DATABASE_URL")
+      end
+
+      def test_classic_runner_defaults_admin_url
+        ENV.delete("DATABASE_URL")
+        ENV.delete("PGHOST")
+        ENV.delete("PGPORT")
+
+        assert_equal(
+          EphemeralDatabase::ADMIN_URL,
+          Runner.classic.instance_variable_get(:@admin_url),
+        )
+      end
+
+      def test_classic_runner_uses_pg_env_admin_url
+        ENV.delete("DATABASE_URL")
+        ENV["PGHOST"] = "/tmp/devenv/postgres"
+        ENV["PGPORT"] = "55432"
+
+        assert_equal(
+          "postgres:///postgres?host=%2Ftmp%2Fdevenv%2Fpostgres&port=55432",
+          Runner.classic.instance_variable_get(:@admin_url),
+        )
+      ensure
+        ENV.delete("PGHOST")
+        ENV.delete("PGPORT")
       end
 
       def test_classic_runner_defaults_to_fifty_runs

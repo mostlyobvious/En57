@@ -10,6 +10,16 @@ module En57
 
     ADMIN_URL = "postgres:///postgres"
 
+    def admin_url
+      ENV.fetch("DATABASE_URL") do
+        if ENV.key?("PGHOST")
+          "postgres:///postgres?#{URI.encode_www_form(host: ENV.fetch("PGHOST"), port: pg_port)}"
+        else
+          ADMIN_URL
+        end
+      end
+    end
+
     def with(template: nil, prefix: "en57", admin_url: ADMIN_URL)
       name = "#{prefix}.#{SecureRandom.hex(8)}"
       admin = PG.connect(admin_url)
@@ -33,6 +43,17 @@ module En57
 
     def database_url(admin_url, name)
       URI.parse(admin_url).tap { it.path = "/#{name}" }.to_str
+    end
+
+    def pg_port
+      live_pg_port || ENV.fetch("PGPORT", 5432)
+    end
+
+    def live_pg_port
+      Dir
+        .glob(File.join(ENV.fetch("PGHOST"), ".s.PGSQL.*"))
+        .filter_map { File.basename(it)[/\A\.s\.PGSQL\.(\d+)\z/, 1] }
+        .first
     end
 
     def execute(connection, statement) = connection.exec(statement)

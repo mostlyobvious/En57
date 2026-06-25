@@ -245,7 +245,11 @@ module En57
         selected_scenarios = scenarios(runs:)
         selected_scenarios = selected_scenarios.slice(*names) if names
 
-        new(formatter: Table.new, scenarios: selected_scenarios)
+        new(
+          formatter: Table.new,
+          scenarios: selected_scenarios,
+          admin_url: EphemeralDatabase.admin_url,
+        )
       end
 
       def self.names = scenarios(runs: nil).keys
@@ -267,9 +271,14 @@ module En57
           end
       end
 
-      def initialize(scenarios:, formatter:)
+      def initialize(
+        scenarios:,
+        formatter:,
+        admin_url: EphemeralDatabase::ADMIN_URL
+      )
         @formatter = formatter
         @scenarios = scenarios
+        @admin_url = admin_url
       end
 
       def run
@@ -279,6 +288,7 @@ module En57
         results =
           @scenarios.map do |_instance_name, runnable|
             EphemeralDatabase.with(
+              admin_url: @admin_url,
               template: runnable.template,
             ) do |database_url|
               samples = Concurrent::Array.new

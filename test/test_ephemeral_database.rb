@@ -31,7 +31,80 @@ module En57
       assert_equal(1, admin.closed)
     end
 
+    def test_admin_url_uses_database_url
+      ENV["DATABASE_URL"] = "postgres://127.0.0.1:15432/postgres"
+
+      assert_equal(
+        "postgres://127.0.0.1:15432/postgres",
+        EphemeralDatabase.admin_url,
+      )
+    ensure
+      ENV.delete("DATABASE_URL")
+    end
+
+    def test_admin_url_uses_pg_env
+      ENV.delete("DATABASE_URL")
+      ENV["PGHOST"] = "/tmp/devenv/postgres"
+      ENV["PGPORT"] = "55432"
+
+      assert_equal(
+        "postgres:///postgres?host=%2Ftmp%2Fdevenv%2Fpostgres&port=55432",
+        EphemeralDatabase.admin_url,
+      )
+    ensure
+      ENV.delete("PGHOST")
+      ENV.delete("PGPORT")
+    end
+
+    def test_admin_url_uses_live_socket_port
+      ENV.delete("DATABASE_URL")
+      ENV["PGHOST"] = "/tmp/devenv/postgres"
+      ENV["PGPORT"] = "5432"
+
+      glob = ->(pattern) do
+        assert_equal("/tmp/devenv/postgres/.s.PGSQL.*", pattern)
+        %w[
+          /tmp/devenv/postgres/.s.PGSQL.lock
+          /tmp/devenv/postgres/.s.PGSQL.55432
+        ]
+      end
+
+      Dir.stub(:glob, glob) do
+        assert_equal(
+          "postgres:///postgres?host=%2Ftmp%2Fdevenv%2Fpostgres&port=55432",
+          EphemeralDatabase.admin_url,
+        )
+      end
+    ensure
+      ENV.delete("PGHOST")
+      ENV.delete("PGPORT")
+    end
+
+    def test_admin_url_defaults_pg_env_port
+      ENV.delete("DATABASE_URL")
+      ENV["PGHOST"] = "/tmp/devenv/postgres"
+      ENV.delete("PGPORT")
+
+      assert_equal(
+        "postgres:///postgres?host=%2Ftmp%2Fdevenv%2Fpostgres&port=5432",
+        EphemeralDatabase.admin_url,
+      )
+    ensure
+      ENV.delete("PGHOST")
+    end
+
+    def test_admin_url_defaults_to_bare_postgres_url
+      ENV.delete("DATABASE_URL")
+      ENV.delete("PGHOST")
+      ENV.delete("PGPORT")
+
+      assert_equal(EphemeralDatabase::ADMIN_URL, EphemeralDatabase.admin_url)
+    end
+
     def test_defaults_to_bare_postgres_url
+      ENV.delete("DATABASE_URL")
+      ENV.delete("PGHOST")
+      ENV.delete("PGPORT")
       admin = recording_connection
       yielded = nil
 
@@ -41,6 +114,23 @@ module En57
 
       assert_equal([EphemeralDatabase::ADMIN_URL], admin.urls)
       assert_match(%r{\Apostgres:///en57\.\h{16}\z}, yielded)
+    end
+
+    def test_preserves_admin_url_query_in_database_url
+      admin = recording_connection
+      yielded = nil
+
+      PG.stub(:connect, ->(_url) { admin }) do
+        EphemeralDatabase.with(
+          admin_url:
+            "postgres:///postgres?host=%2Ftmp%2Fdevenv%2Fpostgres&port=55432",
+        ) { |database_url| yielded = database_url }
+      end
+
+      assert_match(
+        %r{\Apostgres:///en57\.\h{16}\?host=%2Ftmp%2Fdevenv%2Fpostgres&port=55432\z},
+        yielded,
+      )
     end
 
     def test_uses_template_and_returns_block_result
