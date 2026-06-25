@@ -8,7 +8,7 @@ module En57
       runs: ->(runs) { runs * 10 },
       concurrency: 1,
       batch_size: 100,
-      reset: Scenario::RESET_RES,
+      template: "golden_res",
     ) do
       def setup(database_url)
         require "active_record"

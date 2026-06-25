@@ -4,6 +4,9 @@ require "test_helper"
 
 module En57
   class TestMigrator < IntegrationTest
+    def setup = nil
+    def teardown = nil
+
     def test_status_reports_pending_schema_on_empty_database
       with_database do |url|
         assert_equal(
@@ -108,17 +111,8 @@ module En57
 
     private
 
-    def with_database
-      name = "en57_migrator_#{SecureRandom.hex(8)}"
-      CONNECTION.exec(%(CREATE DATABASE #{PG::Connection.quote_ident(name)}))
-      yield database_url(name)
-    ensure
-      CONNECTION.exec(
-        %(DROP DATABASE IF EXISTS #{PG::Connection.quote_ident(name)}),
-      )
-    end
-
-    def database_url(name) = "postgres:///#{name}"
+    def with_database(&block) =
+      EphemeralDatabase.with(prefix: "en57-migrator", &block)
 
     def schema_path(version)
       File.expand_path("../db/schema/#{version}.sql", __dir__)

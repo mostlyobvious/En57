@@ -4,11 +4,11 @@ require "test_helper"
 
 module En57
   class TestStress < IntegrationTest
-    ADAPTERS.each do |name, factory|
+    ADAPTER_NAMES.each do |name|
       define_method(
         "test_#{name}_only_one_writer_can_consume_account_credits",
       ) do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           event_store.append(
             [
               Event.new(
