@@ -1,6 +1,5 @@
 {
   pkgs,
-  lib,
   config,
   ...
 }:
@@ -43,10 +42,10 @@
     package = pkgs.postgresql_18;
     initialDatabases =
       let
-        seededSchema = pkgs.runCommand "golden-en57-seeded.sql" { } ''
-          cat ${./db/schema/0.1.0.sql} \
-              ${./db/seeds/concurrent_append_non_conflicting_tags_seeded.sql} > $out
-        '';
+        seededSchema = pkgs.concatText "golden-en57-seeded.sql" [
+          ./db/schema/0.1.0.sql
+          ./db/seeds/concurrent_append_non_conflicting_tags_seeded.sql
+        ];
       in
       [
         {
@@ -125,39 +124,37 @@
       };
     };
 
-  tasks = {
-    "dev:setup".exec = "bundle install --quiet";
-    "devenv:enterShell".after = [ "dev:setup" ];
-    "dev:format" = {
-      exec = "treefmt";
-      after = [ "dev:setup" ];
-    };
-    "test:unit" = {
-      exec = ''
+  tasks =
+    let
+      minitest = filter: ''
         ruby -Itest -Ilib <<'RUBY'
           require "bundler/setup"
-          Dir["test/test_*.rb"].sort.each { require File.expand_path(_1) }
-          Minitest::Runnable.runnables.reject! { _1.superclass != Minitest::Test || _1 == En57::IntegrationTest }
+          Dir["test/test_*.rb"].sort.each { require File.expand_path(it) }
+          Minitest::Runnable.runnables.reject! { ${filter} }
         RUBY
       '';
-      after = [ "dev:setup" ];
+    in
+    {
+      "dev:setup".exec = "bundle install --quiet";
+      "devenv:enterShell".after = [ "dev:setup" ];
+      "dev:format" = {
+        exec = "treefmt";
+        after = [ "dev:setup" ];
+      };
+      "test:unit" = {
+        exec = minitest "it.superclass != Minitest::Test || it == En57::IntegrationTest";
+        after = [ "dev:setup" ];
+      };
+      "test:integration" = {
+        exec = minitest "it.superclass != En57::IntegrationTest";
+        after = [ "dev:setup" ];
+      };
+      "test:mutate" = {
+        exec = ''bin/mutant run --since "''${MUTANT_SINCE:-HEAD}"'';
+        after = [ "dev:setup" ];
+      };
+      "test:pg".exec = "pg-regress";
     };
-    "test:integration" = {
-      exec = ''
-        ruby -Itest -Ilib <<'RUBY'
-          require "bundler/setup"
-          Dir["test/test_*.rb"].sort.each { require File.expand_path(_1) }
-          Minitest::Runnable.runnables.reject! { _1.superclass != En57::IntegrationTest }
-        RUBY
-      '';
-      after = [ "dev:setup" ];
-    };
-    "test:mutate" = {
-      exec = ''bin/mutant run --since "''${MUTANT_SINCE:-HEAD}"'';
-      after = [ "dev:setup" ];
-    };
-    "test:pg".exec = "pg-regress";
-  };
 
   treefmt.enable = true;
   treefmt.config = {
@@ -193,9 +190,9 @@
     dbname=regress
     user=''${PGUSER:-$(id -un)}
 
-    "$bindir/dropdb" -h "$PGHOST" -U "$user" --if-exists "$dbname"
-    "$bindir/createdb" -h "$PGHOST" -U "$user" "$dbname"
-    "$bindir/psql" -h "$PGHOST" -U "$user" -d "$dbname" \
+    dropdb -h "$PGHOST" -U "$user" --if-exists "$dbname"
+    createdb -h "$PGHOST" -U "$user" "$dbname"
+    psql -h "$PGHOST" -U "$user" -d "$dbname" \
       -v ON_ERROR_STOP=1 -q -f db/schema/0.1.0.sql
 
     rm -rf test/pg_regress/results
