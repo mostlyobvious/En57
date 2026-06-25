@@ -203,23 +203,20 @@
         mkdir -p test/pg_regress/results
 
         ruby -r bundler/setup -r pg_ephemeral <<'RUBY'
-            status = 1
-            begin
-              server = PgEphemeral.start
-              status = system(
-                "${pkgs.postgresql_18.dev}/lib/pgxs/src/test/regress/pg_regress",
-                "--use-existing",
-                "--dbname=#{server.url}",
-                "--inputdir=test/pg_regress",
-                "--outputdir=test/pg_regress/results",
-                "--expecteddir=test/pg_regress",
-                "--bindir=${pkgs.postgresql_18}/bin",
-                "--schedule=test/pg_regress/schedule_existing",
-              ) ? 0 : 1
-            ensure
-              server&.shutdown
-            end
-            exit(status)
+            exit(
+              PgEphemeral.with_server do |server|
+                system(
+                  "${pkgs.postgresql_18.dev}/lib/pgxs/src/test/regress/pg_regress",
+                  "--use-existing",
+                  "--dbname=#{server.url}",
+                  "--inputdir=test/pg_regress",
+                  "--outputdir=test/pg_regress/results",
+                  "--expecteddir=test/pg_regress",
+                  "--bindir=${pkgs.postgresql_18}/bin",
+                  "--schedule=test/pg_regress/schedule_existing",
+                ) ? 0 : 1
+              end,
+            )
     RUBY
   '';
 
