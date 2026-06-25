@@ -60,7 +60,7 @@
         (res "res-append-stream-any")
         (res "res-concurrent-append-non-conflicting-streams")
         (res "res-concurrent-append-conflicting-streams")
-        (en57 "en57_regress")
+        (en57 "regress")
       ];
   };
 
@@ -190,7 +190,7 @@
 
     pg_regress=${pkgs.postgresql_18.dev}/lib/pgxs/src/test/regress/pg_regress
     bindir=${pkgs.postgresql_18}/bin
-    dbname=en57_regress
+    dbname=regress
     user=''${PGUSER:-$(id -un)}
 
     "$bindir/dropdb" -h "$PGHOST" -U "$user" --if-exists "$dbname"
