@@ -15,27 +15,26 @@ require "en57"
 # test dependencies
 require "securerandom"
 require "concurrent-ruby"
-require "pg_ephemeral"
 
 module En57
   class IntegrationTest < Minitest::Test
-    SERVER = PgEphemeral.start
+    MAIN_URL = "postgres:///main"
 
-    CONNECTION = PG.connect(SERVER.url)
+    CONNECTION = PG.connect(MAIN_URL)
 
     POOL_SIZE = 8
 
-    PG_POOL = ConnectionPool.new(size: POOL_SIZE) { PG.connect(SERVER.url) }
+    PG_POOL = ConnectionPool.new(size: POOL_SIZE) { PG.connect(MAIN_URL) }
 
     SEQUEL_DB =
       Sequel.connect(
-        SERVER.url,
+        MAIN_URL,
         preconnect: :concurrently,
         max_connections: POOL_SIZE,
       )
 
     AR_POOL = -> do
-      ActiveRecord::Base.establish_connection("#{SERVER.url}&pool=#{POOL_SIZE}")
+      ActiveRecord::Base.establish_connection("#{MAIN_URL}?pool=#{POOL_SIZE}")
       ActiveRecord::Base.connection_pool
     end.call
 
@@ -55,7 +54,6 @@ module En57
       SEQUEL_DB.disconnect
       PG_POOL.shutdown(&:close)
       CONNECTION.close
-      SERVER.shutdown
     end
   end
 end

@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "uri"
 
 module En57
   class TestMigrator < IntegrationTest
@@ -119,11 +118,7 @@ module En57
       )
     end
 
-    def database_url(name)
-      uri = URI(SERVER.url)
-      uri.path = "/#{name}"
-      uri.to_s
-    end
+    def database_url(name) = "postgres:///#{name}"
 
     def schema_path(version)
       File.expand_path("../db/schema/#{version}.sql", __dir__)

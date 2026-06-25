@@ -160,16 +160,9 @@ GEM
     parser (3.3.11.1)
       ast (~> 2.4.1)
       racc
-    pg (1.6.3)
     pg (1.6.3-aarch64-linux)
     pg (1.6.3-arm64-darwin)
     pg (1.6.3-x86_64-linux)
-    pg-ephemeral (0.5.1-aarch64-linux)
-      pg (~> 1.5)
-    pg-ephemeral (0.5.1-arm64-darwin)
-      pg (~> 1.5)
-    pg-ephemeral (0.5.1-x86_64-linux)
-      pg (~> 1.5)
     pp (0.6.3)
       prettyprint
     prettier_print (1.2.1)
@@ -286,7 +279,6 @@ DEPENDENCIES
   minitest-mock
   minitest-stub-const
   mutant-minitest
-  pg-ephemeral
   rails
   rails_event_store
   rake
@@ -348,13 +340,9 @@ CHECKSUMS
   nokogiri (1.19.3-arm64-darwin) sha256=71b9bd424b1b7abc18b05052a1a3cfd3627abdca62be280854cc411791357e42
   nokogiri (1.19.3-x86_64-linux-gnu) sha256=2f5078620fe12e83669b5b17311b32532a8153d02eee7ad06948b926d6080976
   parser (3.3.11.1) sha256=d17ace7aabe3e72c3cc94043714be27cc6f852f104d81aa284c2281aecc65d54
-  pg (1.6.3) sha256=1388d0563e13d2758c1089e35e973a3249e955c659592d10e5b77c468f628a99
   pg (1.6.3-aarch64-linux) sha256=0698ad563e02383c27510b76bf7d4cd2de19cd1d16a5013f375dd473e4be72ea
   pg (1.6.3-arm64-darwin) sha256=7240330b572e6355d7c75a7de535edb5dfcbd6295d9c7777df4d9dddfb8c0e5f
   pg (1.6.3-x86_64-linux) sha256=5d9e188c8f7a0295d162b7b88a768d8452a899977d44f3274d1946d67920ae8d
-  pg-ephemeral (0.5.1-aarch64-linux) sha256=109ede089c1a5ef2d5ef80e8a1a8d7e4741a827948a1e7c3ae44c37f27fe6dbe
-  pg-ephemeral (0.5.1-arm64-darwin) sha256=b254bacea36f1fd9b9690f95d141c16716684beccae7ffd0a23df4477b4cf512
-  pg-ephemeral (0.5.1-x86_64-linux) sha256=4c7a867df7e88abd5d8a5e816b0f633043c181017ccc6cde90b4be2087361129
   pp (0.6.3) sha256=2951d514450b93ccfeb1df7d021cae0da16e0a7f95ee1e2273719669d0ab9df6
   prettier_print (1.2.1) sha256=a72838b5f23facff21f90a5423cdcdda19e4271092b41f4ea7f50b83929e6ff9
   prettyprint (0.2.0) sha256=2bc9e15581a94742064a3cc8b0fb9d45aae3d03a1baa6ef80922627a0766f193

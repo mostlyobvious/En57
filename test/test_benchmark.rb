@@ -86,27 +86,26 @@ module En57
           "formatted"
         end
 
-        server = Data.define(:url).new("postgres://example")
         mk_scenario = ->(name) do
-          ->(_database_url, _warmup_runs) do
-            Data
-              .define(:name, :runs, :retry_count) do
-                def run(measure, retries)
-                  3.times do
-                    retries.call
-                    measure.call { nil }
+          Runnable.new(
+            reset: "",
+            build: ->(_database_url, _warmup_runs) do
+              Data
+                .define(:name, :runs, :retry_count) do
+                  def run(measure, retries)
+                    3.times do
+                      retries.call
+                      measure.call { nil }
+                    end
                   end
                 end
-              end
-              .new(name, 1, 3)
-          end
+                .new(name, 1, 3)
+            end,
+          )
         end
 
         output =
-          PgEphemeral.stub(
-            :with_server,
-            ->(instance_name:, &block) { block.call(server) },
-          ) do
+          PG.stub(:connect, fake_pg_connection.method(:connect)) do
             Runner.new(
               formatter:,
               scenarios: {
@@ -125,7 +124,6 @@ module En57
       def test_runner_sets_append_retries_during_benchmark
         formatter = Object.new
         formatter.define_singleton_method(:format) { |_results| "formatted" }
-        server = Data.define(:url).new("postgres://example")
         append_retries = nil
         original_append_retries = En57.configuration.append_retries
         En57.configuration.append_retries = 7
@@ -145,14 +143,15 @@ module En57
             end
             .new(->(value) { append_retries = value })
 
-        PgEphemeral.stub(
-          :with_server,
-          ->(instance_name:, &block) { block.call(server) },
-        ) do
+        PG.stub(:connect, fake_pg_connection.method(:connect)) do
           Runner.new(
             formatter:,
             scenarios: {
-              "instance" => ->(_database_url, _warmup_runs) { scenario },
+              "instance" =>
+                Runnable.new(
+                  reset: "",
+                  build: ->(_database_url, _warmup_runs) { scenario },
+                ),
             },
           ).run
         end
@@ -169,7 +168,6 @@ module En57
         formatter.define_singleton_method(:format) do |results|
           formatted_results = results
         end
-        server = Data.define(:url).new("postgres://example")
         samples =
           Class
             .new(Array) do
@@ -189,16 +187,17 @@ module En57
             end
             .new
 
-        PgEphemeral.stub(
-          :with_server,
-          ->(instance_name:, &block) { block.call(server) },
-        ) do
+        PG.stub(:connect, fake_pg_connection.method(:connect)) do
           Concurrent::Array.stub(:new, samples) do
             ::Benchmark.stub(:realtime, ->(&block) { block.call || 0.1 }) do
               Runner.new(
                 formatter:,
                 scenarios: {
-                  "instance" => ->(_database_url, _warmup_runs) { scenario },
+                  "instance" =>
+                    Runnable.new(
+                      reset: "",
+                      build: ->(_database_url, _warmup_runs) { scenario },
+                    ),
                 },
               ).run
             end
@@ -208,15 +207,13 @@ module En57
         assert_in_delta(1.1, formatted_results.fetch(0).mean)
       end
 
-      def test_runner_uses_scenario_instance_names_and_database_urls
+      def test_runner_resets_database_and_uses_instance_database_urls
         formatter = Object.new
         formatter.define_singleton_method(:format) { |_results| "formatted" }
-        server = Data.define(:url).new("postgres://example")
-        instance_names = []
         database_urls = []
         warmup_runs = []
         measured_blocks = 0
-        mk_scenario = ->(database_url, warmup_run_count) do
+        build = ->(database_url, warmup_run_count) do
           database_urls << database_url
           warmup_runs << warmup_run_count
           Class
@@ -238,20 +235,46 @@ module En57
             end
         end
 
-        PgEphemeral.stub(
-          :with_server,
-          ->(instance_name:, &block) do
-            instance_names << instance_name
-            block.call(server)
-          end,
-        ) do
-          Runner.new(formatter:, scenarios: { "instance" => mk_scenario }).run
+        connection = fake_pg_connection
+        PG.stub(:connect, connection.method(:connect)) do
+          Runner.new(
+            formatter:,
+            scenarios: {
+              "instance" => Runnable.new(reset: "RESET SQL", build:),
+            },
+          ).run
         end
 
-        assert_equal(["instance"], instance_names)
-        assert_equal(["postgres://example"], database_urls)
+        assert_equal(["postgres:///instance"], database_urls)
         assert_equal([2], warmup_runs)
         assert_equal(3, measured_blocks)
+        assert_equal(["postgres:///instance"], connection.urls)
+        assert_equal(["RESET SQL"], connection.statements)
+        assert_equal(1, connection.closed)
+      end
+
+      def test_runner_propagates_reset_connection_errors_without_masking
+        formatter = Object.new
+        formatter.define_singleton_method(:format) { |_results| "formatted" }
+        boom = Class.new(StandardError)
+
+        error =
+          assert_raises(boom) do
+            PG.stub(:connect, ->(_url) { raise boom }) do
+              Runner.new(
+                formatter:,
+                scenarios: {
+                  "instance" =>
+                    Runnable.new(
+                      reset: "",
+                      build: ->(_database_url, _warmup_runs) { nil },
+                    ),
+                },
+              ).run
+            end
+          end
+
+        assert_instance_of(boom, error)
       end
 
       def test_scenario_uses_noop_measure_for_warmup
@@ -286,13 +309,9 @@ module En57
             end
           end
         scenario = nil
-        server = Data.define(:url).new("postgres://example")
         durations = [0.1, 0.2]
 
-        PgEphemeral.stub(
-          :with_server,
-          ->(instance_name:, &block) { block.call(server) },
-        ) do
+        PG.stub(:connect, fake_pg_connection.method(:connect)) do
           ::Benchmark.stub(
             :realtime,
             ->(&block) do
@@ -303,9 +322,13 @@ module En57
             Runner.new(
               formatter:,
               scenarios: {
-                "warmup" => ->(_database_url, warmup_runs) do
-                  scenario = scenario_class.new(warmup_runs:)
-                end,
+                "warmup" =>
+                  Runnable.new(
+                    reset: "",
+                    build: ->(_database_url, warmup_runs) do
+                      scenario = scenario_class.new(warmup_runs:)
+                    end,
+                  ),
               },
             ).run
           end
@@ -636,6 +659,7 @@ module En57
         first_scenario =
           Class.new do
             def self.database_instance = "a-discovered"
+            def self.reset = "reset-a"
 
             def self.build(database_url:, warmup_runs:, runs:)
               [database_url, warmup_runs, runs]
@@ -644,6 +668,7 @@ module En57
         second_scenario =
           Class.new do
             def self.database_instance = "b-discovered"
+            def self.reset = "reset-b"
 
             def self.build(database_url:, warmup_runs:, runs:)
               [database_url, warmup_runs, runs]
@@ -652,12 +677,11 @@ module En57
 
         Scenario.stub(:definitions, [second_scenario, first_scenario]) do
           assert_equal(%w[a-discovered b-discovered], Runner.names)
+          runnable = Runner.scenarios(runs: 3).fetch("a-discovered")
+          assert_equal("reset-a", runnable.reset)
           assert_equal(
             ["postgres://example", 2, 3],
-            Runner
-              .scenarios(runs: 3)
-              .fetch("a-discovered")
-              .call("postgres://example", 2),
+            runnable.build.call("postgres://example", 2),
           )
         end
       end
@@ -666,11 +690,13 @@ module En57
         first_scenario =
           Class.new do
             def self.database_instance = "first"
+            def self.reset = ""
             def self.build(...) = nil
           end
         second_scenario =
           Class.new do
             def self.database_instance = "second"
+            def self.reset = ""
             def self.build(...) = nil
           end
 
@@ -688,6 +714,7 @@ module En57
         scenario =
           Class.new do
             def self.database_instance = "scenario"
+            def self.reset = ""
 
             def self.build(database_url:, warmup_runs:, runs:)
               [database_url, warmup_runs, runs]
@@ -700,6 +727,7 @@ module En57
               .classic
               .instance_variable_get(:@scenarios)
               .fetch("scenario")
+              .build
               .call("postgres://example", 2)
 
           assert_equal(["postgres://example", 2, 50], scenario)
@@ -803,6 +831,102 @@ module En57
         measurement = Measurement.from([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
 
         assert_in_delta(0.35, measurement.median)
+      end
+
+      def test_reset_en57_truncates_event_and_tag_tables
+        assert_equal(
+          "TRUNCATE en57.tags, en57.events RESTART IDENTITY CASCADE",
+          Scenario::RESET_EN57,
+        )
+      end
+
+      def test_reset_res_truncates_event_store_tables
+        assert_equal(
+          "TRUNCATE event_store_events, event_store_events_in_streams " \
+            "RESTART IDENTITY CASCADE",
+          Scenario::RESET_RES,
+        )
+      end
+
+      def test_scenario_define_defaults_reset_to_en57_truncate
+        original_definitions = Scenario.definitions.dup
+        scenario_class =
+          Scenario.define(database_instance: "reset-default", name: "Reset")
+
+        assert_equal(Scenario::RESET_EN57, scenario_class.reset)
+      ensure
+        Scenario.definitions.replace(original_definitions)
+      end
+
+      def test_scenario_define_accepts_custom_reset
+        original_definitions = Scenario.definitions.dup
+        scenario_class =
+          Scenario.define(
+            database_instance: "reset-custom",
+            name: "Reset",
+            reset: "TRUNCATE custom",
+          )
+
+        assert_equal("TRUNCATE custom", scenario_class.reset)
+      ensure
+        Scenario.definitions.replace(original_definitions)
+      end
+
+      def test_seeded_scenario_reset_reloads_seed_after_truncate
+        seeded =
+          Scenario.definitions.find do
+            it.database_instance ==
+              "concurrent-append-non-conflicting-tags-seeded"
+          end
+
+        assert(seeded.reset.start_with?(Scenario::RESET_EN57))
+        assert_includes(seeded.reset, "INSERT INTO en57.events")
+      end
+
+      def test_res_scenarios_reset_with_res_truncate
+        res_scenarios =
+          Scenario.definitions.select do
+            it.database_instance.start_with?("res-")
+          end
+
+        refute_empty(res_scenarios)
+        res_scenarios.each do |scenario|
+          assert_equal(Scenario::RESET_RES, scenario.reset)
+        end
+      end
+
+      def test_scenario_with_overrides_reset
+        original_definitions = Scenario.definitions.dup
+        scenario_class =
+          Scenario.define(database_instance: "reset-base", name: "Base")
+        copy = scenario_class.with(database_instance: "reset-copy", reset: "X")
+
+        assert_equal(Scenario::RESET_EN57, scenario_class.reset)
+        assert_equal("X", copy.reset)
+      ensure
+        Scenario.definitions.replace(original_definitions)
+      end
+
+      def fake_pg_connection
+        Class
+          .new do
+            attr_reader :urls, :statements, :closed
+
+            def initialize
+              @urls = []
+              @statements = []
+              @closed = 0
+            end
+
+            def connect(url)
+              @urls << url
+              self
+            end
+
+            def exec(sql) = @statements << sql
+            def close = @closed += 1
+          end
+          .new
       end
     end
 

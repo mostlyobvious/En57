@@ -5,15 +5,15 @@ require "test_helper"
 module En57
   class TestFactories < IntegrationTest
     def test_for_pg_round_trips_with_connection_uri
-      assert_round_trip EventStore.for_pg(SERVER.url)
+      assert_round_trip EventStore.for_pg(MAIN_URL)
     end
 
     def test_for_pooled_pg_round_trips_with_default_max_connections
-      assert_round_trip EventStore.for_pooled_pg(SERVER.url)
+      assert_round_trip EventStore.for_pooled_pg(MAIN_URL)
     end
 
     def test_for_pooled_pg_round_trips_with_custom_max_connections
-      assert_round_trip EventStore.for_pooled_pg(SERVER.url, max_connections: 1)
+      assert_round_trip EventStore.for_pooled_pg(MAIN_URL, max_connections: 1)
     end
 
     def test_for_active_record_round_trips_with_default_model
@@ -34,7 +34,7 @@ module En57
       CONNECTION.exec("CREATE TABLE public.events (id integer PRIMARY KEY)")
       CONNECTION.exec("CREATE TABLE public.tags (id integer PRIMARY KEY)")
 
-      assert_round_trip EventStore.for_pg(SERVER.url)
+      assert_round_trip EventStore.for_pg(MAIN_URL)
     ensure
       CONNECTION.exec("DROP TABLE IF EXISTS public.tags, public.events")
     end
