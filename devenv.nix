@@ -124,7 +124,7 @@
           "*" = "treefmt {file}";
         };
         onStop = {
-          "*" = "devenv tasks run test";
+          "*" = "devenv test";
         };
       };
     };
@@ -228,12 +228,12 @@
       '';
     };
     test = {
-      name = "Run the test namespace on stop";
+      name = "Run devenv test on stop";
       hookType = "Stop";
       command = ''
         input=$(cat)
         cd "''${DEVENV_ROOT:-.}" || exit 0
-        devenv tasks run test 1>&2 && exit 0
+        devenv test 1>&2 && exit 0
         [ "$(printf '%s' "$input" | jq -r '.stop_hook_active // false')" = "true" ] && exit 0
         exit 2
       '';
