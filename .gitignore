@@ -13,3 +13,6 @@ devenv.local.yaml
 
 /.agents/skills/
 /.claude/skills/
+/.pi/edit-hooks.json
+/.pi/npm/
+/.pi/settings.json

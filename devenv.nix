@@ -82,6 +82,17 @@
       ".agents/skills/mutant/SKILL.md".text = mutantSkill;
       ".claude/skills/commit/SKILL.md".text = commitSkill;
       ".claude/skills/mutant/SKILL.md".text = mutantSkill;
+      ".pi/settings.json".json = {
+        packages = [ "npm:pi-edit-hooks@0.2.1" ];
+      };
+      ".pi/edit-hooks.json".json = {
+        onEdit = {
+          "*" = "treefmt {file}";
+        };
+        onStop = {
+          "*" = "devenv tasks run test";
+        };
+      };
     };
 
   tasks = {
