@@ -22,6 +22,7 @@
     pkgs.postgresql_18
     pkgs.postgresql_18.pg_config
     pkgs.sqlfluff
+    pkgs.rubyPackages.syntax_tree
     pkgs.jq
     pkgs.libyaml
     pkgs.pi-coding-agent
@@ -165,7 +166,7 @@
     };
     settings.formatter = {
       ruby = {
-        command = "bin/stree";
+        command = "${pkgs.rubyPackages.syntax_tree}/bin/stree";
         options = [ "write" ];
         includes = [ "*.rb" ];
       };
