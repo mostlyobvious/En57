@@ -39,7 +39,9 @@
     devenv tasks run test
   '';
 
-  env.OCIMAN_BACKEND = pkgs.lib.mkIf pkgs.stdenv.isDarwin "docker";
+  env = pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+    OCIMAN_BACKEND = "docker";
+  };
 
   services.postgres = {
     enable = true;
@@ -186,39 +188,40 @@
     };
   };
 
-  scripts.docker.exec = pkgs.lib.mkIf pkgs.stdenv.isDarwin (
-    builtins.readFile (
+  scripts = {
+    pg-regress.exec = ''
+          set -euo pipefail
+          cd "$DEVENV_ROOT"
+
+          rm -rf test/pg_regress/results
+          mkdir -p test/pg_regress/results
+
+          ruby -r bundler/setup -r pg_ephemeral <<'RUBY'
+              exit(
+                PgEphemeral.with_server do |server|
+                  system(
+                    "${pkgs.postgresql_18.dev}/lib/pgxs/src/test/regress/pg_regress",
+                    "--use-existing",
+                    "--dbname=#{server.url}",
+                    "--inputdir=test/pg_regress",
+                    "--outputdir=test/pg_regress/results",
+                    "--expecteddir=test/pg_regress",
+                    "--bindir=${pkgs.postgresql_18}/bin",
+                    "--schedule=test/pg_regress/schedule_existing",
+                  ) ? 0 : 1
+                end,
+              )
+      RUBY
+    '';
+  }
+  // pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+    docker.exec = builtins.readFile (
       pkgs.fetchurl {
         url = "https://raw.githubusercontent.com/mostlyobvious/apple-container-docker-shim/refs/heads/main/bin/docker";
         hash = "sha256-lg9Z5sMwthWUd9cogJpqkdWfacIl5ji4R/lLl4GdbGg=";
       }
-    )
-  );
-
-  scripts.pg-regress.exec = ''
-        set -euo pipefail
-        cd "$DEVENV_ROOT"
-
-        rm -rf test/pg_regress/results
-        mkdir -p test/pg_regress/results
-
-        ruby -r bundler/setup -r pg_ephemeral <<'RUBY'
-            exit(
-              PgEphemeral.with_server do |server|
-                system(
-                  "${pkgs.postgresql_18.dev}/lib/pgxs/src/test/regress/pg_regress",
-                  "--use-existing",
-                  "--dbname=#{server.url}",
-                  "--inputdir=test/pg_regress",
-                  "--outputdir=test/pg_regress/results",
-                  "--expecteddir=test/pg_regress",
-                  "--bindir=${pkgs.postgresql_18}/bin",
-                  "--schedule=test/pg_regress/schedule_existing",
-                ) ? 0 : 1
-              end,
-            )
-    RUBY
-  '';
+    );
+  };
 
   claude.code.enable = true;
   claude.code.hooks = {
