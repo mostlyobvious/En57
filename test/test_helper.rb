@@ -23,44 +23,50 @@ module En57
 
     POOL_SIZE = 8
 
-    attr_reader :database_url, :connection, :sequel_db
+    ADMIN = PG.connect(EphemeralDatabase::ADMIN_URL)
+    DATABASE_NAME = "en57.#{SecureRandom.hex(8)}"
+    ADMIN.exec(
+      "CREATE DATABASE #{PG::Connection.quote_ident(DATABASE_NAME)} " \
+        "TEMPLATE golden_en57",
+    )
+    DATABASE_URL = "postgres:///#{DATABASE_NAME}"
 
-    def setup
-      @admin = PG.connect(EphemeralDatabase::ADMIN_URL)
-      @database_name = "en57.#{SecureRandom.hex(8)}"
-      @admin.exec(
-        "CREATE DATABASE #{PG::Connection.quote_ident(@database_name)} " \
-          "TEMPLATE golden_en57",
-      )
-      @database_url = "postgres:///#{@database_name}"
-
-      @connection = PG.connect(@database_url)
-      @pg_pool =
-        ConnectionPool.new(size: POOL_SIZE) { PG.connect(@database_url) }
-      @sequel_db = Sequel.connect(@database_url, max_connections: POOL_SIZE)
+    CONNECTION = PG.connect(DATABASE_URL)
+    PG_POOL = ConnectionPool.new(size: POOL_SIZE) { PG.connect(DATABASE_URL) }
+    SEQUEL_DB = Sequel.connect(DATABASE_URL, max_connections: POOL_SIZE)
+    AR_POOL = -> do
       ActiveRecord::Base.establish_connection(
-        "#{@database_url}?pool=#{POOL_SIZE}",
+        "#{DATABASE_URL}?pool=#{POOL_SIZE}",
       )
-      @ar_pool = ActiveRecord::Base.connection_pool
-    end
+      ActiveRecord::Base.connection_pool
+    end.call
 
-    def teardown
-      @ar_pool&.disconnect!
-      @sequel_db&.disconnect
-      @pg_pool&.shutdown(&:close)
-      @connection&.close
-      @admin&.exec(
-        "DROP DATABASE IF EXISTS " \
-          "#{PG::Connection.quote_ident(@database_name)} WITH (FORCE)",
+    def database_url = DATABASE_URL
+    def connection = CONNECTION
+    def sequel_db = SEQUEL_DB
+
+    def setup =
+      CONNECTION.exec(
+        "TRUNCATE TABLE en57.tags, en57.events RESTART IDENTITY CASCADE",
       )
-      @admin&.close
+
+    Minitest.after_run do
+      AR_POOL.disconnect!
+      SEQUEL_DB.disconnect
+      PG_POOL.shutdown(&:close)
+      CONNECTION.close
+      ADMIN.exec(
+        "DROP DATABASE IF EXISTS " \
+          "#{PG::Connection.quote_ident(DATABASE_NAME)} WITH (FORCE)",
+      )
+      ADMIN.close
     end
 
     def adapter_factory(name)
       {
-        pg: -> { PgAdapter.for_pool(@pg_pool) },
-        sequel: -> { SequelAdapter.new(@sequel_db) },
-        active_record: -> { ActiveRecordAdapter.new(@ar_pool) },
+        pg: -> { PgAdapter.for_pool(PG_POOL) },
+        sequel: -> { SequelAdapter.new(SEQUEL_DB) },
+        active_record: -> { ActiveRecordAdapter.new(AR_POOL) },
       }.fetch(name)
     end
   end
