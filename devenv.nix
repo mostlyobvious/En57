@@ -135,12 +135,10 @@
       '';
     in
     {
-      "dev:setup".exec = "bundle install --quiet";
       "devenv:enterShell".after = [ "dev:setup" ];
-      "dev:format" = {
-        exec = "treefmt";
-        after = [ "dev:setup" ];
-      };
+      "dev:setup".exec = "bundle install --quiet";
+      "dev:format".exec = "treefmt";
+
       "test:unit" = {
         exec = minitest "it.superclass != Minitest::Test || it == En57::IntegrationTest";
         after = [ "dev:setup" ];
