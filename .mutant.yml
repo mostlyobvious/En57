@@ -33,3 +33,4 @@ matcher:
     - En57::Benchmark::ResConcurrentAppendConflictingStreams*
     - En57::Benchmark::ResConcurrentAppendNonConflictingStreams*
     - En57::Benchmark::Scenario#concurrently # thread raise mutation survives despite direct coverage
+    - En57::EphemeralDatabase#execute # receiver->self mutation runs Kernel#exec on multi-word SQL, replacing the worker

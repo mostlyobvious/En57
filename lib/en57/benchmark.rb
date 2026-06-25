@@ -7,6 +7,7 @@ require "pg"
 require "securerandom"
 
 require_relative "../en57"
+require_relative "ephemeral_database"
 
 module En57
   module Benchmark
@@ -22,7 +23,7 @@ module En57
         :retry_count,
       )
 
-    Runnable = Data.define(:build, :reset)
+    Runnable = Data.define(:build, :template)
 
     class Table
       def format(results)
@@ -129,13 +130,8 @@ module En57
           :concurrency,
           :batch_size,
           :runs,
-          :reset,
+          :template,
         )
-
-      RESET_EN57 = "TRUNCATE en57.tags, en57.events RESTART IDENTITY CASCADE"
-      RESET_RES =
-        "TRUNCATE event_store_events, event_store_events_in_streams " \
-          "RESTART IDENTITY CASCADE"
 
       @definitions = []
 
@@ -147,7 +143,7 @@ module En57
         concurrency: 1,
         batch_size: 100,
         runs: ->(runs) { runs },
-        reset: RESET_EN57,
+        template: "golden_en57",
         &block
       )
         register(
@@ -157,7 +153,7 @@ module En57
             concurrency:,
             batch_size:,
             runs:,
-            reset:,
+            template:,
           ),
           &block
         )
@@ -174,7 +170,7 @@ module En57
               configuration.database_instance
             end
 
-            define_singleton_method(:reset) { configuration.reset }
+            define_singleton_method(:template) { configuration.template }
 
             define_singleton_method(
               :build,
@@ -262,7 +258,7 @@ module En57
             [
               scenario_class.database_instance,
               Runnable.new(
-                reset: scenario_class.reset,
+                template: scenario_class.template,
                 build: ->(database_url, warmup_runs) do
                   scenario_class.build(database_url:, warmup_runs:, runs:)
                 end,
@@ -281,44 +277,36 @@ module En57
         En57.configuration.append_retries = 100
 
         results =
-          @scenarios.map do |instance_name, runnable|
-            database_url = "postgres:///#{instance_name}"
-            reset(database_url, runnable.reset)
+          @scenarios.map do |_instance_name, runnable|
+            EphemeralDatabase.with(
+              template: runnable.template,
+            ) do |database_url|
+              samples = Concurrent::Array.new
+              retries = Concurrent::AtomicFixnum.new
 
-            samples = Concurrent::Array.new
-            retries = Concurrent::AtomicFixnum.new
+              scenario = runnable.build.call(database_url, 2)
+              scenario.run(
+                ->(&block) { samples << ::Benchmark.realtime { block.call } },
+                -> { retries.increment },
+              )
+              measurement = Measurement.from(samples)
 
-            scenario = runnable.build.call(database_url, 2)
-            scenario.run(
-              ->(&block) { samples << ::Benchmark.realtime { block.call } },
-              -> { retries.increment },
-            )
-            measurement = Measurement.from(samples)
-
-            Result.new(
-              name: scenario.name,
-              runs: scenario.runs,
-              mean: measurement.mean,
-              stddev: measurement.stddev,
-              min: measurement.min,
-              max: measurement.max,
-              median: measurement.median,
-              retry_count: retries.value,
-            )
+              Result.new(
+                name: scenario.name,
+                runs: scenario.runs,
+                mean: measurement.mean,
+                stddev: measurement.stddev,
+                min: measurement.min,
+                max: measurement.max,
+                median: measurement.median,
+                retry_count: retries.value,
+              )
+            end
           end
 
         @formatter.format(results)
       ensure
         En57.configuration.append_retries = original_append_retries
-      end
-
-      private
-
-      def reset(database_url, sql)
-        connection = PG.connect(database_url)
-        connection.exec(sql)
-      ensure
-        connection&.close
       end
     end
 

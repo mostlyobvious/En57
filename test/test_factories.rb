@@ -5,15 +5,18 @@ require "test_helper"
 module En57
   class TestFactories < IntegrationTest
     def test_for_pg_round_trips_with_connection_uri
-      assert_round_trip EventStore.for_pg(MAIN_URL)
+      assert_round_trip EventStore.for_pg(database_url)
     end
 
     def test_for_pooled_pg_round_trips_with_default_max_connections
-      assert_round_trip EventStore.for_pooled_pg(MAIN_URL)
+      assert_round_trip EventStore.for_pooled_pg(database_url)
     end
 
     def test_for_pooled_pg_round_trips_with_custom_max_connections
-      assert_round_trip EventStore.for_pooled_pg(MAIN_URL, max_connections: 1)
+      assert_round_trip EventStore.for_pooled_pg(
+                          database_url,
+                          max_connections: 1,
+                        )
     end
 
     def test_for_active_record_round_trips_with_default_model
@@ -27,16 +30,16 @@ module En57
     end
 
     def test_for_sequel_round_trips_with_database
-      assert_round_trip EventStore.for_sequel(SEQUEL_DB)
+      assert_round_trip EventStore.for_sequel(sequel_db)
     end
 
     def test_event_store_does_not_conflict_with_public_schema_tables
-      CONNECTION.exec("CREATE TABLE public.events (id integer PRIMARY KEY)")
-      CONNECTION.exec("CREATE TABLE public.tags (id integer PRIMARY KEY)")
+      connection.exec("CREATE TABLE public.events (id integer PRIMARY KEY)")
+      connection.exec("CREATE TABLE public.tags (id integer PRIMARY KEY)")
 
-      assert_round_trip EventStore.for_pg(MAIN_URL)
+      assert_round_trip EventStore.for_pg(database_url)
     ensure
-      CONNECTION.exec("DROP TABLE IF EXISTS public.tags, public.events")
+      connection.exec("DROP TABLE IF EXISTS public.tags, public.events")
     end
 
     private

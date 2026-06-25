@@ -88,7 +88,7 @@ module En57
 
         mk_scenario = ->(name) do
           Runnable.new(
-            reset: "",
+            template: "golden_en57",
             build: ->(_database_url, _warmup_runs) do
               Data
                 .define(:name, :runs, :retry_count) do
@@ -149,7 +149,7 @@ module En57
             scenarios: {
               "instance" =>
                 Runnable.new(
-                  reset: "",
+                  template: "golden_en57",
                   build: ->(_database_url, _warmup_runs) { scenario },
                 ),
             },
@@ -195,7 +195,7 @@ module En57
                 scenarios: {
                   "instance" =>
                     Runnable.new(
-                      reset: "",
+                      template: "golden_en57",
                       build: ->(_database_url, _warmup_runs) { scenario },
                     ),
                 },
@@ -207,7 +207,7 @@ module En57
         assert_in_delta(1.1, formatted_results.fetch(0).mean)
       end
 
-      def test_runner_resets_database_and_uses_instance_database_urls
+      def test_runner_clones_template_and_yields_ephemeral_database_url
         formatter = Object.new
         formatter.define_singleton_method(:format) { |_results| "formatted" }
         database_urls = []
@@ -240,20 +240,29 @@ module En57
           Runner.new(
             formatter:,
             scenarios: {
-              "instance" => Runnable.new(reset: "RESET SQL", build:),
+              "instance" => Runnable.new(template: "golden_res", build:),
             },
           ).run
         end
 
-        assert_equal(["postgres:///instance"], database_urls)
+        assert_equal(1, database_urls.size)
+        assert_match(%r{\Apostgres:///en57\.\h{16}\z}, database_urls.fetch(0))
         assert_equal([2], warmup_runs)
         assert_equal(3, measured_blocks)
-        assert_equal(["postgres:///instance"], connection.urls)
-        assert_equal(["RESET SQL"], connection.statements)
+        assert_equal([EphemeralDatabase::ADMIN_URL], connection.urls)
+        assert_match(
+          /\ACREATE DATABASE "en57\.\h{16}" TEMPLATE "golden_res"\z/,
+          connection.statements.fetch(0),
+        )
+        assert_match(
+          /\ADROP DATABASE IF EXISTS "en57\.\h{16}" WITH \(FORCE\)\z/,
+          connection.statements.fetch(1),
+        )
+        assert_equal(2, connection.statements.size)
         assert_equal(1, connection.closed)
       end
 
-      def test_runner_propagates_reset_connection_errors_without_masking
+      def test_runner_propagates_clone_connection_errors_without_masking
         formatter = Object.new
         formatter.define_singleton_method(:format) { |_results| "formatted" }
         boom = Class.new(StandardError)
@@ -266,7 +275,7 @@ module En57
                 scenarios: {
                   "instance" =>
                     Runnable.new(
-                      reset: "",
+                      template: "golden_en57",
                       build: ->(_database_url, _warmup_runs) { nil },
                     ),
                 },
@@ -324,7 +333,7 @@ module En57
               scenarios: {
                 "warmup" =>
                   Runnable.new(
-                    reset: "",
+                    template: "golden_en57",
                     build: ->(_database_url, warmup_runs) do
                       scenario = scenario_class.new(warmup_runs:)
                     end,
@@ -659,7 +668,7 @@ module En57
         first_scenario =
           Class.new do
             def self.database_instance = "a-discovered"
-            def self.reset = "reset-a"
+            def self.template = "golden_a"
 
             def self.build(database_url:, warmup_runs:, runs:)
               [database_url, warmup_runs, runs]
@@ -668,7 +677,7 @@ module En57
         second_scenario =
           Class.new do
             def self.database_instance = "b-discovered"
-            def self.reset = "reset-b"
+            def self.template = "golden_b"
 
             def self.build(database_url:, warmup_runs:, runs:)
               [database_url, warmup_runs, runs]
@@ -678,7 +687,7 @@ module En57
         Scenario.stub(:definitions, [second_scenario, first_scenario]) do
           assert_equal(%w[a-discovered b-discovered], Runner.names)
           runnable = Runner.scenarios(runs: 3).fetch("a-discovered")
-          assert_equal("reset-a", runnable.reset)
+          assert_equal("golden_a", runnable.template)
           assert_equal(
             ["postgres://example", 2, 3],
             runnable.build.call("postgres://example", 2),
@@ -690,13 +699,13 @@ module En57
         first_scenario =
           Class.new do
             def self.database_instance = "first"
-            def self.reset = ""
+            def self.template = "golden_en57"
             def self.build(...) = nil
           end
         second_scenario =
           Class.new do
             def self.database_instance = "second"
-            def self.reset = ""
+            def self.template = "golden_en57"
             def self.build(...) = nil
           end
 
@@ -714,7 +723,7 @@ module En57
         scenario =
           Class.new do
             def self.database_instance = "scenario"
-            def self.reset = ""
+            def self.template = "golden_en57"
 
             def self.build(database_url:, warmup_runs:, runs:)
               [database_url, warmup_runs, runs]
@@ -833,57 +842,44 @@ module En57
         assert_in_delta(0.35, measurement.median)
       end
 
-      def test_reset_en57_truncates_event_and_tag_tables
-        assert_equal(
-          "TRUNCATE en57.tags, en57.events RESTART IDENTITY CASCADE",
-          Scenario::RESET_EN57,
-        )
-      end
-
-      def test_reset_res_truncates_event_store_tables
-        assert_equal(
-          "TRUNCATE event_store_events, event_store_events_in_streams " \
-            "RESTART IDENTITY CASCADE",
-          Scenario::RESET_RES,
-        )
-      end
-
-      def test_scenario_define_defaults_reset_to_en57_truncate
-        original_definitions = Scenario.definitions.dup
-        scenario_class =
-          Scenario.define(database_instance: "reset-default", name: "Reset")
-
-        assert_equal(Scenario::RESET_EN57, scenario_class.reset)
-      ensure
-        Scenario.definitions.replace(original_definitions)
-      end
-
-      def test_scenario_define_accepts_custom_reset
+      def test_scenario_define_defaults_template_to_golden_en57
         original_definitions = Scenario.definitions.dup
         scenario_class =
           Scenario.define(
-            database_instance: "reset-custom",
-            name: "Reset",
-            reset: "TRUNCATE custom",
+            database_instance: "template-default",
+            name: "Template",
           )
 
-        assert_equal("TRUNCATE custom", scenario_class.reset)
+        assert_equal("golden_en57", scenario_class.template)
       ensure
         Scenario.definitions.replace(original_definitions)
       end
 
-      def test_seeded_scenario_reset_reloads_seed_after_truncate
+      def test_scenario_define_accepts_custom_template
+        original_definitions = Scenario.definitions.dup
+        scenario_class =
+          Scenario.define(
+            database_instance: "template-custom",
+            name: "Template",
+            template: "golden_custom",
+          )
+
+        assert_equal("golden_custom", scenario_class.template)
+      ensure
+        Scenario.definitions.replace(original_definitions)
+      end
+
+      def test_seeded_scenario_clones_seeded_template
         seeded =
           Scenario.definitions.find do
             it.database_instance ==
               "concurrent-append-non-conflicting-tags-seeded"
           end
 
-        assert(seeded.reset.start_with?(Scenario::RESET_EN57))
-        assert_includes(seeded.reset, "INSERT INTO en57.events")
+        assert_equal("golden_en57_seeded", seeded.template)
       end
 
-      def test_res_scenarios_reset_with_res_truncate
+      def test_res_scenarios_clone_res_template
         res_scenarios =
           Scenario.definitions.select do
             it.database_instance.start_with?("res-")
@@ -891,18 +887,22 @@ module En57
 
         refute_empty(res_scenarios)
         res_scenarios.each do |scenario|
-          assert_equal(Scenario::RESET_RES, scenario.reset)
+          assert_equal("golden_res", scenario.template)
         end
       end
 
-      def test_scenario_with_overrides_reset
+      def test_scenario_with_overrides_template
         original_definitions = Scenario.definitions.dup
         scenario_class =
-          Scenario.define(database_instance: "reset-base", name: "Base")
-        copy = scenario_class.with(database_instance: "reset-copy", reset: "X")
+          Scenario.define(database_instance: "template-base", name: "Base")
+        copy =
+          scenario_class.with(
+            database_instance: "template-copy",
+            template: "golden_x",
+          )
 
-        assert_equal(Scenario::RESET_EN57, scenario_class.reset)
-        assert_equal("X", copy.reset)
+        assert_equal("golden_en57", scenario_class.template)
+        assert_equal("golden_x", copy.template)
       ensure
         Scenario.definitions.replace(original_definitions)
       end

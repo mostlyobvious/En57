@@ -42,29 +42,24 @@
     package = pkgs.postgresql_18;
     initialDatabases =
       let
-        en57 = name: {
-          inherit name;
-          schema = ./db/schema/0.1.0.sql;
-        };
-        res = name: {
-          inherit name;
-          schema = ./db/seeds/res.sql;
-        };
+        seededSchema = pkgs.runCommand "golden-en57-seeded.sql" { } ''
+          cat ${./db/schema/0.1.0.sql} \
+              ${./db/seeds/concurrent_append_non_conflicting_tags_seeded.sql} > $out
+        '';
       in
       [
-        (en57 "main")
-        (en57 "append-no-fail-if")
-        (en57 "append-no-fail-if-ar")
-        (en57 "append-non-conflicting-tags")
-        (en57 "concurrent-append-no-fail-if")
-        (en57 "concurrent-append-no-fail-if-ar")
-        (en57 "concurrent-append-conflicting-tags")
-        (en57 "concurrent-append-non-conflicting-tags")
-        (en57 "concurrent-append-non-conflicting-tags-seeded")
-        (res "res-append-stream-any")
-        (res "res-concurrent-append-non-conflicting-streams")
-        (res "res-concurrent-append-conflicting-streams")
-        (en57 "regress")
+        {
+          name = "golden_en57";
+          schema = ./db/schema/0.1.0.sql;
+        }
+        {
+          name = "golden_res";
+          schema = ./db/seeds/res.sql;
+        }
+        {
+          name = "golden_en57_seeded";
+          schema = seededSchema;
+        }
       ];
   };
 

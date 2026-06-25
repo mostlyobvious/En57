@@ -4,9 +4,9 @@ require "test_helper"
 
 module En57
   class TestIntegration < IntegrationTest
-    ADAPTERS.each do |name, factory|
+    ADAPTER_NAMES.each do |name|
       define_method "test_#{name}_happy_path" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           events = [
             Event.new(
               id: ids[0],
@@ -30,7 +30,7 @@ module En57
       end
 
       define_method "test_#{name}_read_with_position_yields_events_and_positions" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           events = [
             Event.new(id: ids[0], type: "OrderPlaced"),
             Event.new(id: ids[1], type: "PriceChanged"),
@@ -45,7 +45,7 @@ module En57
       end
 
       define_method "test_#{name}_append_with_fail_if_and_no_matches_appends_events" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           event = Event.new(id: ids[0], type: "OrderPlaced")
           assert_equal(
             Success.new(position: 1),
@@ -60,7 +60,7 @@ module En57
       end
 
       define_method "test_#{name}_append_with_fail_if_and_matches_returns_failure" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           existing_event =
             Event.new(
               id: ids[0],
@@ -88,7 +88,7 @@ module En57
       end
 
       define_method "test_#{name}_append_with_after_ignores_matches_at_or_before_cutoff" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           existing_event = Event.new(id: ids[0], type: "OrderPlaced")
           assert_equal(
             Success.new(position: 1),
@@ -110,7 +110,7 @@ module En57
       end
 
       define_method "test_#{name}_append_with_after_returns_failure_if_match_is_after_cutoff" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           existing_event = Event.new(id: ids[0], type: "OrderPlaced")
           assert_equal(
             Success.new(position: 1),
@@ -130,7 +130,7 @@ module En57
       end
 
       define_method "test_#{name}_append_with_duplicate_id_raises_unique_violation" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           existing_event = Event.new(id: ids[0], type: "OrderPlaced")
           assert_equal(
             Success.new(position: 1),
@@ -148,7 +148,7 @@ module En57
       end
 
       define_method "test_#{name}_tags_round_trip" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           event =
             Event.new(id: ids[0], type: "OrderPlaced", tags: ["order_id:123"])
 
@@ -158,7 +158,7 @@ module En57
       end
 
       define_method "test_#{name}_read_filters_after" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           events = [
             Event.new(id: ids[0], type: "OrderPlaced"),
             Event.new(id: ids[1], type: "PriceChanged"),
@@ -170,7 +170,7 @@ module En57
       end
 
       define_method "test_#{name}_read_filters_by_tags" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           events = [
             Event.new(
               id: ids[0],
@@ -197,7 +197,7 @@ module En57
       end
 
       define_method "test_#{name}_read_filters_by_type" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           events = [
             Event.new(id: ids[0], type: "OrderPlaced"),
             Event.new(id: ids[1], type: "PriceChanged"),
@@ -212,7 +212,7 @@ module En57
       end
 
       define_method "test_#{name}_read_filters_by_any_of_types" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           events = [
             Event.new(id: ids[0], type: "PriceChanged"),
             Event.new(id: ids[1], type: "OrderPlaced"),
@@ -228,7 +228,7 @@ module En57
       end
 
       define_method "test_#{name}_read_filters_by_type_and_tag_on_same_item" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           events = [
             Event.new(id: ids[0], type: "OrderPlaced", tags: ["order_id:123"]),
             Event.new(id: ids[1], type: "OrderPlaced", tags: ["order_id:456"]),
@@ -249,7 +249,7 @@ module En57
       end
 
       define_method "test_#{name}_read_or_combines_scopes_as_disjunction" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           events = [
             Event.new(id: ids[0], type: "OrderPlaced", tags: ["order_id:123"]),
             Event.new(id: ids[1], type: "OrderPlaced", tags: ["order_id:456"]),
@@ -272,7 +272,7 @@ module En57
       end
 
       define_method "test_#{name}_read_streams_results_spanning_many_batches" do
-        with_event_store(factory) do |event_store|
+        with_event_store(adapter_factory(name)) do |event_store|
           events =
             (1..5).map do |n|
               Event.new(
