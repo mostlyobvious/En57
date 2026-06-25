@@ -6,8 +6,6 @@
 }:
 
 {
-  cachix.push = "mostlyobvious";
-
   languages.ruby.enable = true;
   languages.ruby.version = "4.0.5";
   languages.ruby.bundler.package =
