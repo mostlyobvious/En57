@@ -37,6 +37,8 @@
     devenv tasks run test
   '';
 
+  env.OCIMAN_BACKEND = "docker";
+
   services.postgres = {
     enable = true;
     package = pkgs.postgresql_18;
@@ -119,7 +121,7 @@
           "*" = "treefmt {file}";
         };
         onStop = {
-          "*" = "devenv test";
+          "*" = "devenv tasks run test";
         };
       };
     };
@@ -151,7 +153,10 @@
         exec = ''bin/mutant run --since "''${MUTANT_SINCE:-HEAD}"'';
         after = [ "dev:setup" ];
       };
-      "test:pg".exec = "pg-regress";
+      "test:pg" = {
+        exec = "pg-regress";
+        after = [ "dev:setup" ];
+      };
     };
 
   treefmt.enable = true;
@@ -179,33 +184,39 @@
     };
   };
 
+  scripts.docker.exec = builtins.readFile (
+    pkgs.fetchurl {
+      url = "https://raw.githubusercontent.com/mostlyobvious/apple-container-docker-shim/refs/heads/main/bin/docker";
+      hash = "sha256-lg9Z5sMwthWUd9cogJpqkdWfacIl5ji4R/lLl4GdbGg=";
+    }
+  );
+
   scripts.pg-regress.exec = ''
-    set -euo pipefail
-    cd "$DEVENV_ROOT"
+        set -euo pipefail
+        cd "$DEVENV_ROOT"
 
-    pg_regress=${pkgs.postgresql_18.dev}/lib/pgxs/src/test/regress/pg_regress
-    bindir=${pkgs.postgresql_18}/bin
-    dbname=regress
-    user=''${PGUSER:-$(id -un)}
+        rm -rf test/pg_regress/results
+        mkdir -p test/pg_regress/results
 
-    dropdb -h "$PGHOST" -U "$user" --if-exists "$dbname"
-    createdb -h "$PGHOST" -U "$user" "$dbname"
-    psql -h "$PGHOST" -U "$user" -d "$dbname" \
-      -v ON_ERROR_STOP=1 -q -f db/schema/0.1.0.sql
-
-    rm -rf test/pg_regress/results
-    mkdir -p test/pg_regress/results
-
-    "$pg_regress" \
-      --use-existing \
-      --host="$PGHOST" \
-      --user="$user" \
-      --dbname="$dbname" \
-      --inputdir=test/pg_regress \
-      --outputdir=test/pg_regress/results \
-      --expecteddir=test/pg_regress \
-      --bindir="$bindir" \
-      --schedule=test/pg_regress/schedule_existing
+        ruby -r bundler/setup -r pg_ephemeral <<'RUBY'
+            status = 1
+            begin
+              server = PgEphemeral.start
+              status = system(
+                "${pkgs.postgresql_18.dev}/lib/pgxs/src/test/regress/pg_regress",
+                "--use-existing",
+                "--dbname=#{server.url}",
+                "--inputdir=test/pg_regress",
+                "--outputdir=test/pg_regress/results",
+                "--expecteddir=test/pg_regress",
+                "--bindir=${pkgs.postgresql_18}/bin",
+                "--schedule=test/pg_regress/schedule_existing",
+              ) ? 0 : 1
+            ensure
+              server&.shutdown
+            end
+            exit(status)
+    RUBY
   '';
 
   claude.code.enable = true;
@@ -219,12 +230,12 @@
       '';
     };
     test = {
-      name = "Run devenv test on stop";
+      name = "Run devenv tasks run test on stop";
       hookType = "Stop";
       command = ''
         input=$(cat)
         cd "''${DEVENV_ROOT:-.}" || exit 0
-        devenv test 1>&2 && exit 0
+        devenv tasks run test 1>&2 && exit 0
         [ "$(printf '%s' "$input" | jq -r '.stop_hook_active // false')" = "true" ] && exit 0
         exit 2
       '';

@@ -53,4 +53,4 @@ jobs:
           key: ${{ runner.os }}-gems-${{ hashFiles('Gemfile.lock') }}
           restore-keys: ${{ runner.os }}-gems-
       - name: Run the tests
-        run: devenv test
+        run: devenv tasks run test

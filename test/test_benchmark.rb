@@ -207,7 +207,7 @@ module En57
         assert_in_delta(1.1, formatted_results.fetch(0).mean)
       end
 
-      def test_runner_clones_template_and_yields_ephemeral_database_url
+      def test_runner_yields_database_url
         formatter = Object.new
         formatter.define_singleton_method(:format) { |_results| "formatted" }
         database_urls = []
@@ -249,20 +249,9 @@ module En57
         assert_match(%r{\Apostgres:///en57\.\h{16}\z}, database_urls.fetch(0))
         assert_equal([2], warmup_runs)
         assert_equal(3, measured_blocks)
-        assert_equal([EphemeralDatabase::ADMIN_URL], connection.urls)
-        assert_match(
-          /\ACREATE DATABASE "en57\.\h{16}" TEMPLATE "golden_res"\z/,
-          connection.statements.fetch(0),
-        )
-        assert_match(
-          /\ADROP DATABASE IF EXISTS "en57\.\h{16}" WITH \(FORCE\)\z/,
-          connection.statements.fetch(1),
-        )
-        assert_equal(2, connection.statements.size)
-        assert_equal(1, connection.closed)
       end
 
-      def test_runner_propagates_clone_connection_errors_without_masking
+      def test_runner_propagates_database_start_errors_without_masking
         formatter = Object.new
         formatter.define_singleton_method(:format) { |_results| "formatted" }
         boom = Class.new(StandardError)

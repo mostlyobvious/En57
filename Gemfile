@@ -14,6 +14,7 @@ gem "minitest-mock"
 gem "minitest-stub-const"
 gem "mutant-minitest"
 gem "concurrent-ruby"
+gem "pg-ephemeral"
 
 gem "activerecord"
 gem "sequel"

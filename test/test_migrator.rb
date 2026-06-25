@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "en57/ephemeral_database"
 
 module En57
   class TestMigrator < IntegrationTest
@@ -111,8 +112,12 @@ module En57
 
     private
 
-    def with_database(&block) =
-      EphemeralDatabase.with(prefix: "en57-migrator", &block)
+    def with_database
+      EphemeralDatabase.with(
+        admin_url: DATABASE_URL,
+        prefix: "en57-migrator",
+      ) { |url| yield url }
+    end
 
     def schema_path(version)
       File.expand_path("../db/schema/#{version}.sql", __dir__)

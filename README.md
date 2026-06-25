@@ -198,20 +198,17 @@ Tasks are run with `devenv tasks run`:
 | `test` | Run the whole `test:` namespace (unit, mutation, pg_regress) |
 | `test:unit` | Run the unit tests (`bin/m test`) |
 | `test:mutate` | Run mutation testing (`mutant`) for changes since `MUTANT_SINCE` (defaults to `HEAD`) |
-| `test:pg` | Run the `pg_regress` suite against the running PostgreSQL service |
+| `test:pg` | Run the `pg_regress` suite with pg-ephemeral |
 | `dev:format` | Format Ruby and SQL with [treefmt](https://treefmt.com) (syntax_tree + sqlfluff) |
 
-`devenv tasks run` does not start services, so the DB-backed tests assume
-PostgreSQL is already up (see `devenv up` above). To start the services,
-wait for them to be healthy, run the suite, and tear them down in one step,
-use:
+Run the full suite with:
 
 ```sh
-devenv test
+devenv tasks run test
 ```
 
 `pg-regress` is also available as a standalone script in the shell.
 
-CI runs `devenv test`. The devenv config also wires up Claude Code hooks:
-edited files are formatted with treefmt, and the test suite runs at the end
-of each agent loop.
+CI runs `devenv tasks run test`. The devenv config also wires up Claude Code
+hooks: edited files are formatted with treefmt, and the test suite runs at
+the end of each agent loop.
