@@ -33,6 +33,10 @@
     export MUTANT_SINCE="''${MUTANT_SINCE:-HEAD}"
   '';
 
+  enterTest = ''
+    devenv tasks run test
+  '';
+
   services.postgres = {
     enable = true;
     package = pkgs.postgresql_18;
