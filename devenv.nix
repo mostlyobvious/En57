@@ -28,6 +28,7 @@
     pkgs.libyaml
     pkgs.pi-coding-agent
     pkgs.claude-code
+    pkgs.nodejs
   ];
 
   enterShell = ''
