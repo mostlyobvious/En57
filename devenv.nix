@@ -170,7 +170,7 @@
     };
     settings.formatter = {
       ruby = {
-        command = "stree";
+        command = "bin/stree";
         options = [ "write" ];
         includes = [ "*.rb" ];
       };
