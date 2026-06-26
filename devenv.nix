@@ -4,6 +4,13 @@
   ...
 }:
 
+let
+  appleContainerCliPresent =
+    pkgs.stdenv.isDarwin
+    && (
+      builtins.pathExists /usr/local/bin/container || builtins.pathExists /opt/homebrew/bin/container
+    );
+in
 {
   cachix.pull = [ "mostlyobvious" ];
 
@@ -39,7 +46,7 @@
     devenv tasks run test
   '';
 
-  env = pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+  env = pkgs.lib.optionalAttrs appleContainerCliPresent {
     OCIMAN_BACKEND = "docker";
   };
 
@@ -214,7 +221,7 @@
       RUBY
     '';
   }
-  // pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+  // pkgs.lib.optionalAttrs appleContainerCliPresent {
     docker.exec = builtins.readFile (
       pkgs.fetchurl {
         url = "https://raw.githubusercontent.com/mostlyobvious/apple-container-docker-shim/refs/heads/main/bin/docker";
