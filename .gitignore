@@ -6,6 +6,7 @@
 /tmp/
 /test/pg_regress/results/
 .devenv*
+.direnv/
 devenv.local.nix
 devenv.local.yaml
 .pre-commit-config.yaml
